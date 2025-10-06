@@ -18,13 +18,13 @@ import {
     Title,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { authService } from '../../src/services/supabase';
+import { useAuthStore } from '../../src/stores/authStore';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login, loading } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
@@ -39,43 +39,36 @@ export default function LoginScreen() {
     }
 
     try {
-      setLoading(true);
       console.log('🔐 Intentando iniciar sesión con:', email.trim());
       
-      const { data, error } = await authService.signIn(email.trim(), password);
+      const result = await login(email.trim(), password);
 
-      console.log('📊 Resultado del login:', { data: !!data, error: error?.message });
+      console.log('📊 Resultado del login:', { success: result.success, error: result.error?.message });
 
-      if (error) {
-        console.error('❌ Error en login:', error);
+      if (!result.success) {
+        console.error('❌ Error en login:', result.error);
         
         // Manejar diferentes tipos de errores
         let errorMessage = 'No se pudo iniciar sesión. Verifica tus credenciales.';
         
-        if (error.message?.includes('Invalid login credentials')) {
+        if (result.error?.message?.includes('Invalid login credentials')) {
           errorMessage = 'Email o contraseña incorrectos. Verifica tus credenciales.';
-        } else if (error.message?.includes('Email not confirmed')) {
+        } else if (result.error?.message?.includes('Email not confirmed')) {
           errorMessage = 'Por favor verifica tu email antes de iniciar sesión.';
-        } else if (error.message?.includes('Too many requests')) {
+        } else if (result.error?.message?.includes('Too many requests')) {
           errorMessage = 'Demasiados intentos. Espera un momento e inténtalo de nuevo.';
-        } else if (error.message) {
-          errorMessage = error.message;
+        } else if (result.error?.message) {
+          errorMessage = result.error.message;
         }
         
         Alert.alert('Error de inicio de sesión', errorMessage);
-      } else if (data?.user) {
-        console.log('✅ Login exitoso para usuario:', data.user.email);
-        // Navegar directamente a tabs sin Alert
-        router.replace('/(tabs)');
       } else {
-        console.warn('⚠️ Login sin datos de usuario');
-        Alert.alert('Error', 'No se recibieron datos del usuario. Inténtalo de nuevo.');
+        console.log('✅ Login exitoso para usuario:', result.data?.user?.email);
+        // El authStore ya actualiza el estado, el _layout.jsx detectará el cambio y navegará automáticamente
       }
     } catch (error) {
       console.error('💥 Error inesperado en login:', error);
       Alert.alert('Error', 'Ocurrió un error inesperado. Inténtalo de nuevo.');
-    } finally {
-      setLoading(false);
     }
   };
 

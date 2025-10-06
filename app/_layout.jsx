@@ -6,7 +6,7 @@ import { useAuthStore } from '../src/stores/authStore';
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
-  const { isAuthenticated, initialize, initialized } = useAuthStore();
+  const { user, session, initialize, initialized } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -29,24 +29,37 @@ export default function RootLayout() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const inTabsGroup = segments[0] === '(tabs)';
+    const isAuthenticated = !!(user && session);
 
-    if (isAuthenticated()) {
+    console.log('🔍 Auth state check:', { 
+      user: !!user, 
+      session: !!session, 
+      isAuthenticated, 
+      segments: segments[0],
+      inAuthGroup,
+      inTabsGroup 
+    });
+
+    if (isAuthenticated) {
       // Usuario autenticado
       if (inAuthGroup) {
         // Si está en grupo de auth, redirigir a tabs
+        console.log('🔄 Redirigiendo a tabs desde auth');
         router.replace('/(tabs)');
       } else if (segments.length === 0 || segments[0] === 'index') {
         // Si está en la raíz, redirigir a tabs
+        console.log('🔄 Redirigiendo a tabs desde raíz');
         router.replace('/(tabs)');
       }
     } else {
       // Usuario no autenticado
       if (inTabsGroup || segments.length === 0 || segments[0] === 'index') {
         // Si está en tabs o raíz, redirigir a login
+        console.log('🔄 Redirigiendo a login desde tabs/raíz');
         router.replace('/(auth)/login');
       }
     }
-  }, [isAuthenticated, initialized, segments, router, isLoading]);
+  }, [user, session, initialized, segments, router, isLoading]);
 
   // Mostrar loading mientras se inicializa la autenticación
   if (!initialized || isLoading) {

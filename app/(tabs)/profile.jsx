@@ -33,11 +33,21 @@ export default function ProfileScreen() {
           onPress: async () => {
             try {
               setLoading(true);
-              await logout();
+              console.log('🚪 Iniciando logout...');
+              
+              const result = await logout();
+              
+              if (result.success) {
+                console.log('✅ Logout exitoso');
+                // El _layout.jsx detectará el cambio de estado y navegará automáticamente
+              } else {
+                console.error('❌ Error en logout:', result.error);
+                Alert.alert('Error', 'No se pudo cerrar sesión');
+                setLoading(false);
+              }
             } catch (error) {
-              console.error('Error cerrando sesión:', error);
+              console.error('💥 Error inesperado cerrando sesión:', error);
               Alert.alert('Error', 'No se pudo cerrar sesión');
-            } finally {
               setLoading(false);
             }
           },

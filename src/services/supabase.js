@@ -247,6 +247,22 @@ export const petService = {
   },
 };
 
+// Función auxiliar para calcular distancia entre dos puntos
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // Radio de la Tierra en metros
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+};
+
 export const reportService = {
   createReport: async (reportData) => {
     try {
@@ -297,18 +313,89 @@ export const reportService = {
     }
   },
 
-  getNearbyReports: async (latitude, longitude, radiusMeters = 5000) => {
+  getAllReports: async () => {
     try {
       const { data, error } = await supabase
+        .from('reports')
+        .select(`
+          *,
+          reporter:profiles!reporter_id(id, full_name, avatar_url)
+        `)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return { data: data || [], error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  getReportsSimple: async () => {
+    try {
+      console.log('🔄 Obteniendo todos los reportes activos...');
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .eq('status', 'active');
+      
+      if (error) {
+        console.error('❌ Error obteniendo reportes:', error);
+        throw error;
+      }
+      
+      console.log(`✅ Obtenidos ${data?.length || 0} reportes activos`);
+      return { data: data || [], error: null };
+    } catch (error) {
+      console.error('❌ Error en getReportsSimple:', error);
+      return { data: null, error };
+    }
+  },
+
+  getNearbyReports: async (latitude, longitude, radiusMeters = 5000) => {
+    try {
+      // Intentar usar la función RPC primero
+      const { data: rpcData, error: rpcError } = await supabase
         .rpc('nearby_reports', {
           lat: latitude,
           lng: longitude,
           radius_meters: radiusMeters,
         });
       
-      if (error) throw error;
+      if (rpcError) {
+        console.warn('⚠️ RPC nearby_reports falló, usando método alternativo:', rpcError.message);
+        // Fallback: obtener todos los reportes y filtrar localmente
+        const { data: allReports, error: allError } = await this.getAllReports();
+        
+        if (allError) throw allError;
+        
+        const nearbyReports = allReports.filter(report => {
+          let reportLat, reportLng;
+          
+          // Extraer coordenadas del reporte
+          if (report.latitude && report.longitude) {
+            reportLat = report.latitude;
+            reportLng = report.longitude;
+          } else if (report.location && typeof report.location === 'string' && report.location.includes('POINT')) {
+            const match = report.location.match(/POINT\(([^)]+)\)/);
+            if (match) {
+              const [lng, lat] = match[1].split(' ').map(Number);
+              reportLat = lat;
+              reportLng = lng;
+            }
+          }
+          
+          if (!reportLat || !reportLng) return false;
+          
+          // Calcular distancia usando fórmula de Haversine
+          const distance = calculateDistance(latitude, longitude, reportLat, reportLng);
+          return distance <= radiusMeters;
+        });
+        
+        return { data: nearbyReports, error: null };
+      }
       
-      const reportIds = data.map(r => r.id);
+      const reportIds = rpcData.map(r => r.id);
       const { data: fullReports, error: reportsError } = await supabase
         .from('reports')
         .select(`
@@ -320,7 +407,7 @@ export const reportService = {
       if (reportsError) throw reportsError;
       
       const reportsWithDistance = fullReports.map(report => {
-        const distanceData = data.find(d => d.id === report.id);
+        const distanceData = rpcData.find(d => d.id === report.id);
         return {
           ...report,
           distance_meters: distanceData?.distance_meters || 0,

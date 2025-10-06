@@ -60,11 +60,20 @@ export default function HomeScreen() {
 
       console.log(`📍 Ubicación obtenida: ${location.latitude}, ${location.longitude}`);
 
-      const { data, error } = await reportService.getNearbyReports(
+      // Intentar obtener reportes cercanos primero
+      let { data, error } = await reportService.getNearbyReports(
         location.latitude,
         location.longitude,
         5000
       );
+
+      // Si falla, usar método simple para obtener todos los reportes
+      if (error || !data || data.length === 0) {
+        console.log('⚠️ Fallback: obteniendo todos los reportes...');
+        const simpleResult = await reportService.getReportsSimple();
+        data = simpleResult.data;
+        error = simpleResult.error;
+      }
 
       if (error) {
         console.error('Error cargando reportes:', error);
@@ -87,6 +96,19 @@ export default function HomeScreen() {
       } else {
         setReports(data || []);
         console.log(`✅ Cargados ${data?.length || 0} reportes cercanos`);
+        
+        // Debug: mostrar información de los reportes cargados
+        if (data && data.length > 0) {
+          console.log('📍 Reportes cargados:', data.map(report => ({
+            id: report.id,
+            type: report.type,
+            location: report.location,
+            latitude: report.latitude,
+            longitude: report.longitude,
+            hasValidCoords: !!(report.latitude && report.longitude) || 
+                           (report.location && typeof report.location === 'string' && report.location.includes('POINT'))
+          })));
+        }
       }
     } catch (error) {
       console.error('Error en loadReportsNearby:', error);

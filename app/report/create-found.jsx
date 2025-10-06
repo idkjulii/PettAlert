@@ -2,37 +2,38 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import {
-    Button,
-    Card,
-    Chip,
-    HelperText,
-    Paragraph,
-    Text,
-    TextInput,
-    Title,
+  Button,
+  Card,
+  Chip,
+  HelperText,
+  Paragraph,
+  Text,
+  TextInput,
+  Title,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView from '../../src/components/Map/MapView';
 import { getCurrentLocation, reverseGeocode } from '../../src/services/location';
 import { uploadReportPhotos } from '../../src/services/storage';
 import { reportService } from '../../src/services/supabase';
 import { useAuthStore } from '../../src/stores/authStore';
 
 const SPECIES_OPTIONS = [
-  { id: 'dog', label: 'Perro', icon: '🐕' },
-  { id: 'cat', label: 'Gato', icon: '🐈' },
-  { id: 'bird', label: 'Ave', icon: '🐦' },
-  { id: 'rabbit', label: 'Conejo', icon: '🐰' },
-  { id: 'other', label: 'Otro', icon: '🐾' },
+  { id: 'dog', label: 'Perro', icon: 'dog' },
+  { id: 'cat', label: 'Gato', icon: 'cat' },
+  { id: 'bird', label: 'Ave', icon: 'bird' },
+  { id: 'rabbit', label: 'Conejo', icon: 'rabbit' },
+  { id: 'other', label: 'Otro', icon: 'paw' },
 ];
 
 const SIZE_OPTIONS = [
@@ -57,6 +58,8 @@ export default function CreateFoundReportScreen() {
   const [photos, setPhotos] = useState([]);
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showMap, setShowMap] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null);
 
   useEffect(() => {
     getCurrentLocationAndAddress();
@@ -83,10 +86,18 @@ export default function CreateFoundReportScreen() {
       setLocation({
         latitude: locationResult.latitude,
         longitude: locationResult.longitude,
-        address: geocodeResult.address || 'Ubicación actual',
+        address: geocodeResult.address || `Ubicación actual: ${locationResult.latitude.toFixed(6)}, ${locationResult.longitude.toFixed(6)}`,
       });
     } catch (error) {
       console.error('Error obteniendo ubicación:', error);
+      // En caso de error, al menos establecer las coordenadas
+      if (locationResult && !locationResult.error) {
+        setLocation({
+          latitude: locationResult.latitude,
+          longitude: locationResult.longitude,
+          address: `Ubicación actual: ${locationResult.latitude.toFixed(6)}, ${locationResult.longitude.toFixed(6)}`,
+        });
+      }
     }
   };
 
@@ -139,6 +150,36 @@ export default function CreateFoundReportScreen() {
   const removePhoto = (index) => {
     const newPhotos = photos.filter((_, i) => i !== index);
     setPhotos(newPhotos);
+  };
+
+  const handleLocationSelect = async (coordinates) => {
+    try {
+      setSelectedLocation(coordinates);
+      
+      // Obtener la dirección de las coordenadas seleccionadas
+      const geocodeResult = await reverseGeocode(coordinates.latitude, coordinates.longitude);
+      
+      setLocation({
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        address: geocodeResult.address || `Ubicación: ${coordinates.latitude.toFixed(6)}, ${coordinates.longitude.toFixed(6)}`,
+      });
+      
+      setShowMap(false);
+    } catch (error) {
+      console.error('Error obteniendo dirección:', error);
+      // No mostrar alerta, usar coordenadas como fallback
+      setLocation({
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        address: `Ubicación: ${coordinates.latitude.toFixed(6)}, ${coordinates.longitude.toFixed(6)}`,
+      });
+      setShowMap(false);
+    }
+  };
+
+  const toggleMap = () => {
+    setShowMap(!showMap);
   };
 
   const validateForm = () => {
@@ -200,15 +241,12 @@ export default function CreateFoundReportScreen() {
         size,
         description: description.trim(),
         distinctive_features: distinctiveFeatures.trim() || null,
-        reward: null, // No hay recompensa en reportes de encontrados
         photos: photoUrls,
-        latitude: location.latitude,
-        longitude: location.longitude,
+        location: `POINT(${location.longitude} ${location.latitude})`,
         address: location.address,
-        found_location: foundLocation.trim(),
-        found_date: foundDate,
+        location_details: foundLocation.trim(),
+        incident_date: foundDate,
         status: 'active',
-        created_at: new Date().toISOString(),
       };
 
       const { data, error } = await reportService.createReport(reportData);
@@ -268,7 +306,10 @@ export default function CreateFoundReportScreen() {
                     <Chip
                       key={option.id}
                       selected={species === option.id}
-                      onPress={() => setSpecies(option.id)}
+                      onPress={() => {
+                        console.log('🐾 Seleccionando especie:', option.id);
+                        setSpecies(option.id);
+                      }}
                       style={styles.chip}
                       icon={option.icon}
                     >
@@ -423,21 +464,49 @@ export default function CreateFoundReportScreen() {
 
           <Card style={styles.card}>
             <Card.Content style={styles.cardContent}>
-              <Title style={styles.cardTitle}>Ubicación Actual</Title>
+              <Title style={styles.cardTitle}>Ubicación del Reporte</Title>
 
               <View style={styles.locationContainer}>
-                <Paragraph style={styles.locationLabel}>📍 Tu ubicación:</Paragraph>
+                <Paragraph style={styles.locationLabel}>📍 Ubicación seleccionada:</Paragraph>
                 <Paragraph style={styles.locationText}>
                   {location?.address || 'Obteniendo ubicación...'}
                 </Paragraph>
-                <Button
-                  mode="text"
-                  onPress={getCurrentLocationAndAddress}
-                  style={styles.locationButton}
-                >
-                  Actualizar ubicación
-                </Button>
+                
+                <View style={styles.locationButtons}>
+                  <Button
+                    mode="outlined"
+                    onPress={getCurrentLocationAndAddress}
+                    style={styles.locationButton}
+                    icon="crosshairs-gps"
+                  >
+                    Mi ubicación
+                  </Button>
+                  <Button
+                    mode="contained"
+                    onPress={toggleMap}
+                    style={styles.locationButton}
+                    icon="map-marker"
+                  >
+                    {showMap ? 'Ocultar mapa' : 'Seleccionar en mapa'}
+                  </Button>
+                </View>
               </View>
+
+              {showMap && (
+                <View style={styles.mapContainer}>
+                  <MapView
+                    reports={[]}
+                    onLocationSelect={handleLocationSelect}
+                    allowLocationSelection={true}
+                    selectedLocation={selectedLocation}
+                    showUserLocation={true}
+                    style={styles.map}
+                  />
+                  <Paragraph style={styles.mapHelp}>
+                    💡 Toca en el mapa para seleccionar la ubicación exacta donde encontraste a la mascota
+                  </Paragraph>
+                </View>
+              )}
             </Card.Content>
           </Card>
 
@@ -590,10 +659,30 @@ const styles = StyleSheet.create({
   locationText: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 8,
+    marginBottom: 16,
+  },
+  locationButtons: {
+    flexDirection: 'row',
+    gap: 12,
   },
   locationButton: {
-    alignSelf: 'flex-start',
+    flex: 1,
+  },
+  mapContainer: {
+    marginTop: 16,
+    height: 300,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  map: {
+    flex: 1,
+  },
+  mapHelp: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   buttonContainer: {
     marginTop: 24,

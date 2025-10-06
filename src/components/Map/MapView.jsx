@@ -1,17 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
-import MapView, { Circle, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapView, { Circle, Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { getCurrentLocation } from '../../services/location';
 import ReportMarker from './ReportMarker';
 
 const CustomMapView = ({ 
   reports = [],
   onReportPress,
+  onLocationSelect,
   showUserLocation = true,
   showRadius = false,
   radiusMeters = 5000,
   initialRegion = null,
   style,
+  allowLocationSelection = false,
+  selectedLocation = null,
 }) => {
   const mapRef = useRef(null);
   const [userLocation, setUserLocation] = useState(null);
@@ -56,6 +59,13 @@ const CustomMapView = ({
     }
   };
 
+  const handleMapPress = (event) => {
+    if (allowLocationSelection && onLocationSelect) {
+      const { latitude, longitude } = event.nativeEvent.coordinate;
+      onLocationSelect({ latitude, longitude });
+    }
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
@@ -77,6 +87,7 @@ const CustomMapView = ({
         showsScale={true}
         loadingEnabled={true}
         onRegionChangeComplete={setRegion}
+        onPress={handleMapPress}
       >
         {showRadius && userLocation && (
           <Circle
@@ -89,10 +100,45 @@ const CustomMapView = ({
         )}
 
         {reports.map((report) => {
-          const latitude = report.latitude || report.location?.coordinates?.[1];
-          const longitude = report.longitude || report.location?.coordinates?.[0];
+          let latitude, longitude;
+          
+          // Intentar obtener coordenadas de diferentes formatos
+          if (report.latitude && report.longitude) {
+            // Coordenadas directas
+            latitude = report.latitude;
+            longitude = report.longitude;
+          } else if (report.location?.coordinates) {
+            // Formato GeoJSON: [longitude, latitude]
+            longitude = report.location.coordinates[0];
+            latitude = report.location.coordinates[1];
+          } else if (typeof report.location === 'string' && report.location.includes('POINT')) {
+            // Formato PostGIS POINT: "POINT(longitude latitude)"
+            const match = report.location.match(/POINT\(([^)]+)\)/);
+            if (match) {
+              const [lng, lat] = match[1].split(' ').map(Number);
+              longitude = lng;
+              latitude = lat;
+            }
+          }
 
-          if (!latitude || !longitude) return null;
+          if (!latitude || !longitude) {
+            // Debug: mostrar qué reporte no tiene coordenadas válidas
+            console.log('⚠️ Reporte sin coordenadas válidas:', {
+              id: report.id,
+              type: report.type,
+              location: report.location,
+              latitude: report.latitude,
+              longitude: report.longitude
+            });
+            return null;
+          }
+
+          // Debug: mostrar reporte que se va a renderizar
+          console.log('🗺️ Renderizando marcador para reporte:', {
+            id: report.id,
+            type: report.type,
+            coordinates: { latitude, longitude }
+          });
 
           return (
             <ReportMarker
@@ -103,6 +149,14 @@ const CustomMapView = ({
             />
           );
         })}
+
+        {allowLocationSelection && selectedLocation && (
+          <Marker
+            coordinate={selectedLocation}
+            pinColor="#007AFF"
+            title="Ubicación seleccionada"
+          />
+        )}
       </MapView>
     </View>
   );
