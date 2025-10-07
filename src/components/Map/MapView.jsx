@@ -14,6 +14,7 @@ const CustomMapView = ({
   style,
   allowLocationSelection = false,
   selectedLocation = null,
+  onMarkerPress,
 }) => {
   const mapRef = useRef(null);
   const [userLocation, setUserLocation] = useState(null);
@@ -180,7 +181,13 @@ const CustomMapView = ({
               pinColor={isLost ? 'red' : 'green'}
               title={report.pet_name || (isLost ? 'Mascota Perdida' : 'Mascota Encontrada')}
               description={report.breed || report.species || 'Ver detalles'}
-              onPress={() => onReportPress && onReportPress(report)}
+              onPress={() => {
+                if (onMarkerPress) {
+                  onMarkerPress(report);
+                } else if (onReportPress) {
+                  onReportPress(report);
+                }
+              }}
             />
           );
         })}

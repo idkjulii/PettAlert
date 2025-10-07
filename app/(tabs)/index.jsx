@@ -9,17 +9,22 @@ import {
 import { FAB, Portal, Provider, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView from '../../src/components/Map/MapView';
+import ReportModal from '../../src/components/UI/ReportModal';
 import { getCurrentLocation } from '../../src/services/location';
-import { authService, reportService } from '../../src/services/supabase';
+import { authService, messageService, reportService } from '../../src/services/supabase';
+import { useAuthStore } from '../../src/stores/authStore';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { getUserId } = useAuthStore();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
   const [fabOpen, setFabOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     initializeScreen();
@@ -129,6 +134,57 @@ export default function HomeScreen() {
     router.push(`/report/${report.id}`);
   };
 
+  const handleMarkerPress = (report) => {
+    setSelectedReport(report);
+    setModalVisible(true);
+  };
+
+  const handleModalClose = () => {
+    setModalVisible(false);
+    setSelectedReport(null);
+  };
+
+  const handleViewDetails = () => {
+    setModalVisible(false);
+    router.push(`/report/${selectedReport.id}`);
+  };
+
+  const handleContact = async () => {
+    try {
+      const currentUserId = getUserId();
+      
+      if (!currentUserId) {
+        Alert.alert('Error', 'Debes iniciar sesión para contactar al reportero');
+        return;
+      }
+
+      if (currentUserId === selectedReport.reporter_id) {
+        Alert.alert('Información', 'Este es tu propio reporte');
+        return;
+      }
+
+      // Crear o obtener conversación
+      const { data: conversation, error: convError } = await messageService.getOrCreateConversation(
+        selectedReport.id,
+        currentUserId,
+        selectedReport.reporter_id
+      );
+
+      if (convError) {
+        console.error('Error creando conversación:', convError);
+        Alert.alert('Error', 'No se pudo iniciar la conversación');
+        return;
+      }
+
+      // Cerrar modal y navegar a la conversación
+      setModalVisible(false);
+      router.push(`/chat/${conversation.id}`);
+    } catch (error) {
+      console.error('Error contactando reportero:', error);
+      Alert.alert('Error', 'Ocurrió un error al contactar al reportero');
+    }
+  };
+
   const handleCreateLostReport = () => {
     setFabOpen(false);
     router.push('/report/create-lost');
@@ -150,6 +206,7 @@ export default function HomeScreen() {
         <MapView
           reports={reports}
           onReportPress={handleReportPress}
+          onMarkerPress={handleMarkerPress}
           showUserLocation={true}
           showRadius={false}
           style={styles.map}
@@ -205,6 +262,15 @@ export default function HomeScreen() {
             {refreshing ? '🔄 Actualizando...' : '🔄 Actualizar'}
           </Text>
         </TouchableOpacity>
+
+        {/* Modal de información del reporte */}
+        <ReportModal
+          visible={modalVisible}
+          report={selectedReport}
+          onClose={handleModalClose}
+          onViewDetails={handleViewDetails}
+          onContact={handleContact}
+        />
       </SafeAreaView>
     </Provider>
   );
