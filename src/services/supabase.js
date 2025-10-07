@@ -282,17 +282,18 @@ export const reportService = {
   getReportById: async (reportId) => {
     try {
       const { data, error } = await supabase
-        .from('reports')
-        .select(`
-          *,
-          reporter:profiles!reporter_id(id, full_name, phone, avatar_url),
-          pet:pets(*)
-        `)
-        .eq('id', reportId)
-        .single();
+        .rpc('get_report_by_id_with_coords', { report_id: reportId });
       
       if (error) throw error;
-      return { data, error: null };
+      
+      // La función RPC devuelve un array, pero solo queremos el primer elemento
+      const report = data && data.length > 0 ? data[0] : null;
+      
+      if (!report) {
+        return { data: null, error: { message: 'Reporte no encontrado' } };
+      }
+      
+      return { data: report, error: null };
     } catch (error) {
       return { data: null, error };
     }
@@ -301,10 +302,7 @@ export const reportService = {
   getUserReports: async (userId) => {
     try {
       const { data, error } = await supabase
-        .from('reports')
-        .select('*')
-        .eq('reporter_id', userId)
-        .order('created_at', { ascending: false });
+        .rpc('get_user_reports_with_coords', { user_id: userId });
       
       if (error) throw error;
       return { data, error: null };
@@ -316,13 +314,7 @@ export const reportService = {
   getAllReports: async () => {
     try {
       const { data, error } = await supabase
-        .from('reports')
-        .select(`
-          *,
-          reporter:profiles!reporter_id(id, full_name, avatar_url)
-        `)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
+        .rpc('get_reports_with_coords');
       
       if (error) throw error;
       return { data: data || [], error: null };
@@ -335,9 +327,7 @@ export const reportService = {
     try {
       console.log('🔄 Obteniendo todos los reportes activos...');
       const { data, error } = await supabase
-        .from('reports')
-        .select('*')
-        .eq('status', 'active');
+        .rpc('get_reports_with_coords');
       
       if (error) {
         console.error('❌ Error obteniendo reportes:', error);
@@ -345,6 +335,13 @@ export const reportService = {
       }
       
       console.log(`✅ Obtenidos ${data?.length || 0} reportes activos`);
+      if (data && data.length > 0) {
+        console.log('📍 Primeras coordenadas:', {
+          id: data[0].id,
+          latitude: data[0].latitude,
+          longitude: data[0].longitude
+        });
+      }
       return { data: data || [], error: null };
     } catch (error) {
       console.error('❌ Error en getReportsSimple:', error);
@@ -354,7 +351,6 @@ export const reportService = {
 
   getNearbyReports: async (latitude, longitude, radiusMeters = 5000) => {
     try {
-      // Intentar usar la función RPC primero
       const { data: rpcData, error: rpcError } = await supabase
         .rpc('nearby_reports', {
           lat: latitude,
@@ -364,49 +360,39 @@ export const reportService = {
       
       if (rpcError) {
         console.warn('⚠️ RPC nearby_reports falló, usando método alternativo:', rpcError.message);
-        // Fallback: obtener todos los reportes y filtrar localmente
-        const { data: allReports, error: allError } = await this.getAllReports();
+        const { data: allReports, error: allError } = await supabase
+          .rpc('get_reports_with_coords');
         
         if (allError) throw allError;
         
-        const nearbyReports = allReports.filter(report => {
-          let reportLat, reportLng;
-          
-          // Extraer coordenadas del reporte
-          if (report.latitude && report.longitude) {
-            reportLat = report.latitude;
-            reportLng = report.longitude;
-          } else if (report.location && typeof report.location === 'string' && report.location.includes('POINT')) {
-            const match = report.location.match(/POINT\(([^)]+)\)/);
-            if (match) {
-              const [lng, lat] = match[1].split(' ').map(Number);
-              reportLat = lat;
-              reportLng = lng;
-            }
-          }
-          
-          if (!reportLat || !reportLng) return false;
-          
-          // Calcular distancia usando fórmula de Haversine
-          const distance = calculateDistance(latitude, longitude, reportLat, reportLng);
-          return distance <= radiusMeters;
-        });
+        const nearbyReports = allReports
+          .filter(report => {
+            if (!report.latitude || !report.longitude) return false;
+            
+            const distance = calculateDistance(
+              latitude, 
+              longitude, 
+              report.latitude, 
+              report.longitude
+            );
+            
+            report.distance_meters = distance;
+            return distance <= radiusMeters;
+          })
+          .sort((a, b) => a.distance_meters - b.distance_meters);
         
+        console.log(`✅ Filtrados ${nearbyReports.length} reportes cercanos (método local)`);
         return { data: nearbyReports, error: null };
       }
       
       const reportIds = rpcData.map(r => r.id);
       const { data: fullReports, error: reportsError } = await supabase
-        .from('reports')
-        .select(`
-          *,
-          reporter:profiles!reporter_id(id, full_name, avatar_url)
-        `)
-        .in('id', reportIds);
+        .rpc('get_reports_with_coords');
       
       if (reportsError) throw reportsError;
       
-      const reportsWithDistance = fullReports.map(report => {
+      const filtered = fullReports.filter(report => reportIds.includes(report.id));
+      const reportsWithDistance = filtered.map(report => {
         const distanceData = rpcData.find(d => d.id === report.id);
         return {
           ...report,
@@ -416,6 +402,7 @@ export const reportService = {
       
       return { data: reportsWithDistance, error: null };
     } catch (error) {
+      console.error('❌ Error en getNearbyReports:', error);
       return { data: null, error };
     }
   },

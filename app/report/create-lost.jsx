@@ -238,7 +238,7 @@ export default function CreateLostReportScreen() {
         distinctive_features: distinctiveFeatures.trim() || null,
         reward: reward.trim() ? parseFloat(reward) : null,
         photos: photoUrls,
-        location: `POINT(${location.longitude} ${location.latitude})`,
+        location: `SRID=4326;POINT(${location.longitude} ${location.latitude})`,
         address: location.address,
         status: 'active',
       };

@@ -8,6 +8,24 @@ const ReportMarker = ({ report, coordinate, onPress }) => {
   const markerColor = isLost ? '#FF3B30' : '#34C759';
   const primaryPhoto = report.photos?.[0];
 
+  // Validar que tengamos datos mínimos para renderizar
+  if (!report || !coordinate || !coordinate.latitude || !coordinate.longitude) {
+    console.warn('⚠️ ReportMarker: datos inválidos', { report, coordinate });
+    return null;
+  }
+
+  // Función para obtener el emoji de la especie
+  const getSpeciesEmoji = () => {
+    if (!report.species) return '🐾';
+    switch (report.species) {
+      case 'dog': return '🐕';
+      case 'cat': return '🐈';
+      case 'bird': return '🐦';
+      case 'rabbit': return '🐰';
+      default: return '🐾';
+    }
+  };
+
   return (
     <Marker
       coordinate={coordinate}
@@ -25,7 +43,7 @@ const ReportMarker = ({ report, coordinate, onPress }) => {
           ) : (
             <View style={[styles.markerPlaceholder, { backgroundColor: markerColor }]}>
               <Text style={styles.markerEmoji}>
-                {report.species === 'dog' ? '🐕' : report.species === 'cat' ? '🐈' : '🐾'}
+                {getSpeciesEmoji()}
               </Text>
             </View>
           )}
@@ -37,7 +55,7 @@ const ReportMarker = ({ report, coordinate, onPress }) => {
         <View style={styles.calloutContainer}>
           <View style={styles.calloutContent}>
             <Text style={styles.calloutTitle} numberOfLines={1}>
-              {report.pet_name || `${isLost ? 'Perdido' : 'Encontrado'}`}
+              {report.pet_name || (isLost ? 'Mascota Perdida' : 'Mascota Encontrada')}
             </Text>
             <Text style={styles.calloutType}>
               {isLost ? '🔴 Mascota Perdida' : '🟢 Mascota Encontrada'}
@@ -47,7 +65,7 @@ const ReportMarker = ({ report, coordinate, onPress }) => {
                 {report.breed}
               </Text>
             )}
-            {report.distance_meters && (
+            {report.distance_meters !== undefined && report.distance_meters !== null && (
               <Text style={styles.calloutDistance}>
                 📍 {formatDistance(report.distance_meters)}
               </Text>
@@ -72,17 +90,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   markerImageContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 3,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 4,
     overflow: 'hidden',
     backgroundColor: '#fff',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 10,
   },
   markerImage: {
     width: '100%',
@@ -95,16 +113,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   markerEmoji: {
-    fontSize: 24,
+    fontSize: 32,
   },
   markerPointer: {
     width: 0,
     height: 0,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderTopWidth: 12,
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderTopWidth: 15,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
     marginTop: -2,

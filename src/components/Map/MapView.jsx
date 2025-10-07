@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
-import MapView, { Circle, Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapView, { Circle, Marker } from 'react-native-maps';
 import { getCurrentLocation } from '../../services/location';
-import ReportMarker from './ReportMarker';
 
 const CustomMapView = ({ 
   reports = [],
@@ -20,6 +19,48 @@ const CustomMapView = ({
   const [userLocation, setUserLocation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [region, setRegion] = useState(initialRegion);
+
+  useEffect(() => {
+    if (!reports || reports.length === 0 || !mapRef.current) return;
+
+    const coordinates = reports
+      .filter(r => r.latitude && r.longitude)
+      .map(r => ({
+        latitude: r.latitude,
+        longitude: r.longitude,
+      }));
+
+    if (coordinates.length === 0) return;
+
+    console.log('📍 Ajustando mapa a coordenadas:', coordinates);
+    
+    // Esperar un poco más para que el mapa esté completamente renderizado
+    const timer = setTimeout(() => {
+      if (mapRef.current) {
+        try {
+          if (coordinates.length === 1) {
+            // Si solo hay un marcador, hacer zoom directo a esa ubicación
+            mapRef.current.animateToRegion({
+              latitude: coordinates[0].latitude,
+              longitude: coordinates[0].longitude,
+              latitudeDelta: 0.01,  // Zoom cercano
+              longitudeDelta: 0.01,
+            }, 1000);
+          } else {
+            // Si hay múltiples marcadores, ajustar para mostrar todos
+            mapRef.current.fitToCoordinates(coordinates, {
+              edgePadding: { top: 100, right: 100, bottom: 100, left: 100 },
+              animated: true,
+            });
+          }
+        } catch (error) {
+          console.error('Error ajustando región del mapa:', error);
+        }
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [reports]);
 
   useEffect(() => {
     getUserLocation();
@@ -79,7 +120,6 @@ const CustomMapView = ({
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_DEFAULT}
         initialRegion={region}
         showsUserLocation={showUserLocation}
         showsMyLocationButton={false}
@@ -99,41 +139,34 @@ const CustomMapView = ({
           />
         )}
 
-        {reports.map((report) => {
+        {/* Marcador de prueba simple */}
+        <Marker
+          coordinate={{
+            latitude: -27.4692117,
+            longitude: -58.8306333,
+          }}
+          pinColor="red"
+          title="PRUEBA"
+          description="Si ves esto, los marcadores funcionan"
+        />
+
+        {/* Marcadores de reportes - usando marcadores nativos simples */}
+        {reports.map((report, index) => {
           let latitude, longitude;
           
-          // Intentar obtener coordenadas de diferentes formatos
           if (report.latitude && report.longitude) {
-            // Coordenadas directas
             latitude = report.latitude;
             longitude = report.longitude;
-          } else if (report.location?.coordinates) {
-            // Formato GeoJSON: [longitude, latitude]
-            longitude = report.location.coordinates[0];
-            latitude = report.location.coordinates[1];
-          } else if (typeof report.location === 'string' && report.location.includes('POINT')) {
-            // Formato PostGIS POINT: "POINT(longitude latitude)"
-            const match = report.location.match(/POINT\(([^)]+)\)/);
-            if (match) {
-              const [lng, lat] = match[1].split(' ').map(Number);
-              longitude = lng;
-              latitude = lat;
-            }
           }
 
           if (!latitude || !longitude) {
-            // Debug: mostrar qué reporte no tiene coordenadas válidas
-            console.log('⚠️ Reporte sin coordenadas válidas:', {
-              id: report.id,
-              type: report.type,
-              location: report.location,
-              latitude: report.latitude,
-              longitude: report.longitude
-            });
+            console.log('⚠️ Reporte sin coordenadas válidas');
             return null;
           }
 
-          // Debug: mostrar reporte que se va a renderizar
+          const isLost = report.type === 'lost';
+          const markerColor = isLost ? '#FF3B30' : '#34C759';
+          
           console.log('🗺️ Renderizando marcador para reporte:', {
             id: report.id,
             type: report.type,
@@ -141,10 +174,12 @@ const CustomMapView = ({
           });
 
           return (
-            <ReportMarker
+            <Marker
               key={report.id}
-              report={report}
               coordinate={{ latitude, longitude }}
+              pinColor={isLost ? 'red' : 'green'}
+              title={report.pet_name || (isLost ? 'Mascota Perdida' : 'Mascota Encontrada')}
+              description={report.breed || report.species || 'Ver detalles'}
               onPress={() => onReportPress && onReportPress(report)}
             />
           );

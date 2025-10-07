@@ -2,24 +2,24 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import {
-  Button,
-  Card,
-  Chip,
-  HelperText,
-  Paragraph,
-  Text,
-  TextInput,
-  Title,
+    Button,
+    Card,
+    Chip,
+    HelperText,
+    Paragraph,
+    Text,
+    TextInput,
+    Title,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView from '../../src/components/Map/MapView';
@@ -242,7 +242,7 @@ export default function CreateFoundReportScreen() {
         description: description.trim(),
         distinctive_features: distinctiveFeatures.trim() || null,
         photos: photoUrls,
-        location: `POINT(${location.longitude} ${location.latitude})`,
+        location: `SRID=4326;POINT(${location.longitude} ${location.latitude})`,
         address: location.address,
         location_details: foundLocation.trim(),
         incident_date: foundDate,
