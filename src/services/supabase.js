@@ -266,15 +266,35 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 const reportService = {
   createReport: async (reportData) => {
     try {
+      console.log('📝 Creando reporte con datos:', {
+        type: reportData.type,
+        pet_name: reportData.pet_name,
+        species: reportData.species,
+        location: reportData.location,
+        reporter_id: reportData.reporter_id
+      });
+      
       const { data, error } = await supabase
         .from('reports')
         .insert([reportData])
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error creando reporte:', error);
+        throw error;
+      }
+      
+      console.log('✅ Reporte creado exitosamente:', {
+        id: data.id,
+        type: data.type,
+        pet_name: data.pet_name,
+        created_at: data.created_at
+      });
+      
       return { data, error: null };
     } catch (error) {
+      console.error('❌ Error en createReport:', error);
       return { data: null, error };
     }
   },
@@ -338,9 +358,14 @@ const reportService = {
       if (data && data.length > 0) {
         console.log('📍 Primeras coordenadas:', {
           id: data[0].id,
+          type: data[0].type,
+          pet_name: data[0].pet_name,
           latitude: data[0].latitude,
-          longitude: data[0].longitude
+          longitude: data[0].longitude,
+          hasValidCoords: !!(data[0].latitude && data[0].longitude)
         });
+      } else {
+        console.log('⚠️ No se encontraron reportes en la base de datos');
       }
       return { data: data || [], error: null };
     } catch (error) {

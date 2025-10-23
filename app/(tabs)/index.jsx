@@ -35,9 +35,10 @@ export default function HomeScreen() {
     useCallback(() => {
       // Solo refrescar si ya se inicializó la pantalla
       if (reports.length >= 0) {
+        console.log('🔄 Pantalla recibió foco, refrescando reportes...');
         loadReportsNearby();
       }
-    }, [])
+    }, [reports.length])
   );
 
   const initializeScreen = async () => {
@@ -117,12 +118,15 @@ export default function HomeScreen() {
           console.log('📍 Reportes cargados:', data.map(report => ({
             id: report.id,
             type: report.type,
+            pet_name: report.pet_name,
             location: report.location,
             latitude: report.latitude,
             longitude: report.longitude,
             hasValidCoords: !!(report.latitude && report.longitude) || 
                            (report.location && typeof report.location === 'string' && report.location.includes('POINT'))
           })));
+        } else {
+          console.log('⚠️ No se encontraron reportes');
         }
       }
     } catch (error) {

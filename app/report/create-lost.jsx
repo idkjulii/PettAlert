@@ -286,8 +286,11 @@ export default function CreateLostReportScreen() {
             onPress: () => router.push(`/report/${data.id}`),
           },
           {
-            text: 'Volver al inicio',
-            onPress: () => router.push('/(tabs)'),
+            text: 'Volver al mapa',
+            onPress: () => {
+              console.log('🔄 Regresando al mapa después de crear reporte');
+              router.push('/(tabs)');
+            },
           },
         ]
       );
