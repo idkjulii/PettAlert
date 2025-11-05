@@ -21,10 +21,14 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo Iniciando servidor backend en http://localhost:8003
+echo Iniciando servidor backend en http://0.0.0.0:8003
+echo Accesible desde:
+echo   - http://localhost:8003
+echo   - http://127.0.0.1:8003
+echo   - http://192.168.0.204:8003 (red local)
 echo Presiona Ctrl+C para detener el servidor
 echo.
 
-python main.py
+python -m uvicorn main:app --host 0.0.0.0 --port 8003 --reload
 
 pause

@@ -1,6 +1,7 @@
 import { NETWORK_CONFIG } from '../config/network.js';
+import { BACKEND_URL, getNgrokHeaders } from '../config/backend.js';
 
-export async function searchImage(baseUrl = NETWORK_CONFIG.BACKEND_URL, fileUri, lat, lng, maxKm) {
+export async function searchImage(baseUrl = BACKEND_URL || NETWORK_CONFIG.BACKEND_URL, fileUri, lat, lng, maxKm) {
   const form = new FormData();
   // @ts-expect-error RN FormData file
   form.append("file", { uri: fileUri, name: "query.jpg", type: "image/jpeg" });
@@ -13,6 +14,7 @@ export async function searchImage(baseUrl = NETWORK_CONFIG.BACKEND_URL, fileUri,
   const res = await fetch(`${baseUrl}/embeddings/search_image?${q.toString()}`, { 
     method: "POST", 
     body: form,
+    headers: getNgrokHeaders(),
     timeout: 30000 // 30 segundos de timeout
   });
   if (!res.ok) {

@@ -1,4 +1,4 @@
-import { buildUrl } from '../config/backend.js';
+import { buildUrl, getNgrokHeaders } from '../config/backend.js';
 
 async function analyzeImage(fileUri) {
   const formData = new FormData();
@@ -11,6 +11,7 @@ async function analyzeImage(fileUri) {
   const response = await fetch(buildUrl('ANALYZE_IMAGE'), {
     method: "POST",
     body: formData,
+    headers: getNgrokHeaders(),
   });
 
   if (!response.ok) {

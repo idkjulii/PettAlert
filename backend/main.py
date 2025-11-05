@@ -20,10 +20,13 @@ import io, traceback, asyncio
 from typing import List, Dict, Any
 
 # Importar los routers
+from routers import reports as reports_router
 from routers import reports_labels as reports_labels_router
 from routers import matches as matches_router
 from routers import ai_search as ai_search_router
 from routers import embeddings_supabase as embeddings_router
+from routers import rag_search as rag_router
+from routers import n8n_integration as n8n_router
 
 # =========================
 # Configuración base
@@ -68,10 +71,13 @@ app.add_middleware(
 )
 
 # Incluir los routers
+app.include_router(reports_router.router)
 app.include_router(reports_labels_router.router)
 app.include_router(matches_router.router)
 app.include_router(ai_search_router.router)
 app.include_router(embeddings_router.router)
+app.include_router(rag_router.router)
+app.include_router(n8n_router.router)
 
 # Cliente de Google Cloud Vision
 vision_client = vision.ImageAnnotatorClient()

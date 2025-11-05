@@ -6,33 +6,78 @@ import { BACKEND_URL, ENDPOINTS, buildUrl } from '../config/backend';
 class ApiService {
   constructor() {
     this.baseUrl = BACKEND_URL;
+    console.log('🔧 Backend URL configurada:', this.baseUrl);
   }
 
   /**
    * Realiza una petición HTTP
    */
   async request(endpoint, options = {}) {
-    const url = typeof endpoint === 'string' ? endpoint : buildUrl(endpoint.endpoint, endpoint.params);
+    let url;
+    if (typeof endpoint === 'string') {
+      // Si es una cadena, agregar la URL base si no es una URL completa
+      if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+        url = endpoint;
+      } else {
+        url = `${this.baseUrl}${endpoint}`;
+      }
+    } else {
+      url = buildUrl(endpoint.endpoint, endpoint.params);
+    }
     
-    const defaultOptions = {
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    // Detectar si es una URL de ngrok y agregar header para evitar página de bienvenida
+    const isNgrok = url.includes('ngrok-free.dev') || url.includes('ngrok.io');
+    
+    // Preparar headers base
+    const baseHeaders = {
+      // Header para evitar la página de bienvenida de ngrok free (siempre incluir si es ngrok)
+      ...(isNgrok && { 'ngrok-skip-browser-warning': 'true' }),
     };
-
-    const finalOptions = { ...defaultOptions, ...options };
+    
+    // Si no hay headers personalizados, usar Content-Type por defecto para JSON
+    if (!options.headers || !options.headers['Content-Type']) {
+      // Solo agregar Content-Type si el body es JSON (no FormData)
+      if (options.body && typeof options.body === 'string' && !options.body.includes('FormData')) {
+        baseHeaders['Content-Type'] = 'application/json';
+      }
+    }
+    
+    // Merge headers: base headers primero, luego los del usuario
+    const finalHeaders = {
+      ...baseHeaders,
+      ...(options.headers || {})
+    };
+    
+    const finalOptions = {
+      ...options,
+      headers: finalHeaders
+    };
 
     try {
       console.log(`🌐 API Request: ${finalOptions.method || 'GET'} ${url}`);
+      console.log(`🔗 URL completa: ${url}`);
+      console.log(`📦 Body:`, finalOptions.body ? finalOptions.body.substring(0, 200) : 'No body');
       
       const response = await fetch(url, finalOptions);
       
+      // Verificar el Content-Type antes de parsear JSON
+      const contentType = response.headers.get('content-type');
+      let responseText = await response.text();
+      
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        // Si es HTML, es probablemente una página de error
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error(`HTTP ${response.status}: El backend devolvió HTML en lugar de JSON. Verifica que el endpoint esté correcto y que el backend esté corriendo.`);
+        }
+        throw new Error(`HTTP ${response.status}: ${responseText.substring(0, 200)}`);
       }
 
-      const data = await response.json();
+      // Verificar que sea JSON antes de parsear
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Respuesta no es JSON (Content-Type: ${contentType}). Respuesta: ${responseText.substring(0, 200)}`);
+      }
+
+      const data = JSON.parse(responseText);
       console.log(`✅ API Response: ${url}`, data);
       
       return { data, error: null };
@@ -120,6 +165,18 @@ class ApiService {
       params: { report_id: reportId }
     }, {
       method: 'POST'
+    });
+  }
+
+  /**
+   * Elimina un reporte
+   */
+  async deleteReport(reportId) {
+    return this.request({
+      endpoint: ENDPOINTS.REPORTS_BY_ID,
+      params: { report_id: reportId }
+    }, {
+      method: 'DELETE'
     });
   }
 

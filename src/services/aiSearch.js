@@ -1,5 +1,5 @@
 
-import { buildUrl } from '../config/backend.js';
+import { buildUrl, getNgrokHeaders } from '../config/backend.js';
 
 /**
  * Servicio de búsqueda con IA para encontrar mascotas
@@ -22,6 +22,7 @@ const aiSearchService = {
       const response = await fetch(buildUrl('ANALYZE_IMAGE'), {
         method: "POST",
         body: formData,
+        headers: getNgrokHeaders(),
         // No especificar Content-Type para FormData en React Native
       });
 
@@ -62,6 +63,7 @@ const aiSearchService = {
       const response = await fetch(buildUrl('CAPTION'), {
         method: "POST",
         body: formData,
+        headers: getNgrokHeaders(),
         // No especificar Content-Type para FormData en React Native
       });
 
@@ -126,6 +128,7 @@ const aiSearchService = {
       const response = await fetch(buildUrl('AI_SEARCH'), {
         method: "POST",
         body: searchData,
+        headers: getNgrokHeaders(),
         // No especificar Content-Type para FormData en React Native
       });
 
@@ -203,9 +206,9 @@ const aiSearchService = {
     try {
       const response = await fetch(buildUrl('SAVE_LABELS', { report_id: reportId }), {
         method: "POST",
-        headers: {
+        headers: getNgrokHeaders({
           'Content-Type': 'application/json',
-        },
+        }),
         body: JSON.stringify(labelsData),
       });
 
@@ -237,9 +240,9 @@ const aiSearchService = {
     try {
       const response = await fetch(buildUrl('HEALTH'), {
         method: "GET",
-        headers: {
+        headers: getNgrokHeaders({
           'Content-Type': 'application/json',
-        },
+        }),
       });
 
       if (!response.ok) {
