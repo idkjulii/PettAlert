@@ -3,8 +3,8 @@
  */
 import { NETWORK_CONFIG } from './network';
 
-// URL de ngrok para usar cuando se ejecuta con --tunnel
-const NGROK_URL = 'https://neighbourly-minaciously-audry.ngrok-free.dev';
+// URL del túnel temporal (Cloudflare quick tunnel en este caso)
+const NGROK_URL = 'https://lance-tmp-players-unexpected.trycloudflare.com';
 
 // URL base del backend - prioridad: variable de entorno > ngrok > red local > localhost
 // Si ngrok está funcionando, se usará automáticamente
@@ -29,6 +29,8 @@ const ENDPOINTS = {
   REPORTS: '/reports/',
   REPORTS_BY_ID: '/reports/{report_id}',
   REPORTS_RESOLVE: '/reports/{report_id}/resolve',
+  MATCHES_PENDING: '/matches/pending',
+  MATCHES_UPDATE: '/matches/{match_id}/status',
   // Embeddings
   EMBEDDINGS_GENERATE: '/embeddings/generate',
   EMBEDDINGS_INDEX: '/embeddings/index/{report_id}',
@@ -55,7 +57,14 @@ const ENDPOINTS = {
  * @returns {string} URL completa
  */
 const buildUrl = (endpoint, params = {}) => {
-  let url = `${BACKEND_URL}${ENDPOINTS[endpoint]}`;
+  const endpointPath = ENDPOINTS[endpoint] ?? endpoint;
+
+  let url;
+  if (endpointPath.startsWith('http://') || endpointPath.startsWith('https://')) {
+    url = endpointPath;
+  } else {
+    url = `${BACKEND_URL}${endpointPath}`;
+  }
   
   // Sufstituir parámetros en la URL
   Object.keys(params).forEach(key => {
@@ -71,7 +80,10 @@ const buildUrl = (endpoint, params = {}) => {
  * @returns {Object} Headers con ngrok si es necesario
  */
 const getNgrokHeaders = (headers = {}) => {
-  const isNgrok = BACKEND_URL.includes('ngrok-free.dev') || BACKEND_URL.includes('ngrok.io');
+  const isNgrok =
+    BACKEND_URL.includes('ngrok-free.dev') ||
+    BACKEND_URL.includes('ngrok.io') ||
+    BACKEND_URL.includes('trycloudflare.com');
   if (isNgrok) {
     return {
       ...headers,

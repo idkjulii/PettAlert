@@ -184,8 +184,26 @@ class ApiService {
    * Auto-matching de reportes
    */
   async autoMatch(reportId, radiusKm = 10, topK = 5) {
-    const url = `${buildUrl(ENDPOINTS.AUTO_MATCH)}?report_id=${reportId}&radius_km=${radiusKm}&top_k=${topK}`;
+    const url = `${buildUrl('AUTO_MATCH')}?report_id=${reportId}&radius_km=${radiusKm}&top_k=${topK}`;
     return this.request(url);
+  }
+
+  /**
+   * Obtiene coincidencias pendientes para un reporte
+   */
+  async getMatchesForReport(reportId) {
+    const url = `${buildUrl('MATCHES_PENDING')}?report_id=${reportId}`;
+    return this.request(url);
+  }
+
+  /**
+   * Reenvía un reporte a n8n para reprocesar coincidencias
+   */
+  async sendReportToN8n(reportId) {
+    return this.request(ENDPOINTS.N8N_SEND_TO_WEBHOOK, {
+      method: 'POST',
+      body: JSON.stringify({ report_id: reportId })
+    });
   }
 
   /**

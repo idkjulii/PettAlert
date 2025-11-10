@@ -5,7 +5,14 @@ from supabase import create_client, Client
 import httpx
 import asyncio
 from services.embeddings import image_bytes_to_vec
-from routers.n8n_integration import send_to_n8n_webhook, get_n8n_webhook_url
+from .n8n_integration import send_to_n8n_webhook
+
+AUTO_SEND_REPORTS_TO_N8N = (
+    os.getenv("AUTO_SEND_REPORTS_TO_N8N", "true").lower() in ("1", "true", "yes")
+)
+GENERATE_EMBEDDINGS_LOCALLY = (
+    os.getenv("GENERATE_EMBEDDINGS_LOCALLY", "false").lower() in ("1", "true", "yes")
+)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -125,12 +132,13 @@ async def get_report_by_id(report_id: str):
     """Obtiene un reporte por ID"""
     try:
         sb = _sb()
-        result = sb.table("reports").select("*").eq("id", report_id).single().execute()
+        result = sb.table("reports").select("*").eq("id", report_id).execute()
+        report_data = result.data[0] if result.data else None
         
-        if not result.data:
+        if not report_data:
             raise HTTPException(404, "Reporte no encontrado")
         
-        return {"report": result.data}
+        return {"report": report_data}
     except Exception as e:
         if "404" in str(e):
             raise e
@@ -152,26 +160,17 @@ async def create_report(
                 raise HTTPException(400, f"Campo requerido faltante: {field}")
         
         # Crear reporte
-        # Insertar el reporte (insert retorna el registro insertado)
-        insert_result = sb.table("reports").insert(report_data).execute()
+        result = sb.table("reports").insert(report_data).execute()
         
-        if not insert_result.data:
+        if not result.data:
             raise HTTPException(500, "Error creando reporte")
         
-        # insert_result.data puede ser una lista o un diccionario según la versión de Supabase
-        if isinstance(insert_result.data, list):
-            created_report = insert_result.data[0] if insert_result.data else None
-        else:
-            created_report = insert_result.data
-        
-        if not created_report:
-            raise HTTPException(500, "Error creando reporte: no se retornó el registro")
-        
+        created_report = result.data[0]
         report_id = created_report.get("id")
         
         # Generar embedding automáticamente si hay fotos (de forma síncrona para asegurar que se guarde)
         photos = created_report.get("photos") or report_data.get("photos", [])
-        if photos and isinstance(photos, list) and len(photos) > 0:
+        if GENERATE_EMBEDDINGS_LOCALLY and photos and isinstance(photos, list) and len(photos) > 0:
             first_photo = photos[0]
             if first_photo:
                 print(f"📸 [embedding] Reporte creado con fotos. Generando embedding para reporte {report_id}...")
@@ -182,37 +181,35 @@ async def create_report(
                 except Exception as e:
                     print(f"⚠️ [embedding] Error generando embedding (no crítico): {str(e)}")
                     # No fallar la creación del reporte si falla el embedding
-                
-                # Enviar automáticamente al webhook de n8n para procesamiento
+        elif photos and isinstance(photos, list) and len(photos) > 0:
+            print("ℹ️ [embedding] Generación local desactivada. La IA externa se encargará del embedding.")
+        
+        # Enviar automáticamente a n8n para procesamiento adicional
+        if AUTO_SEND_REPORTS_TO_N8N and photos and isinstance(photos, list):
+            total_images = len(photos)
+            webhook_results = []
+            for idx, photo_url in enumerate(photos):
+                report_payload = {
+                    "report_id": report_id,
+                    "image_url": photo_url,
+                    "image_index": idx,
+                    "total_images": total_images,
+                    "species": created_report.get("species"),
+                    "type": created_report.get("type"),
+                    "status": created_report.get("status"),
+                    "created_at": created_report.get("created_at"),
+                    "has_labels": created_report.get("labels") is not None,
+                }
                 try:
-                    print(f"📤 [n8n] Enviando reporte {report_id} al webhook de n8n...")
-                    webhook_url = get_n8n_webhook_url()
-                    
-                    # Enviar cada foto al webhook (en background para no bloquear)
-                    for idx, photo_url in enumerate(photos):
-                        report_payload = {
-                            "report_id": report_id,
-                            "image_url": photo_url,
-                            "image_index": idx,
-                            "total_images": len(photos),
-                            "species": created_report.get("species"),
-                            "type": created_report.get("type"),
-                            "status": created_report.get("status"),
-                            "created_at": created_report.get("created_at"),
-                            "has_labels": created_report.get("labels") is not None
-                        }
-                        
-                        # Enviar en background para no bloquear la respuesta
-                        if background_tasks:
-                            background_tasks.add_task(send_to_n8n_webhook, report_payload, webhook_url)
-                        else:
-                            # Si no hay background tasks, enviar directamente pero no bloquear
-                            asyncio.create_task(send_to_n8n_webhook(report_payload, webhook_url))
-                    
-                    print(f"✅ [n8n] Reporte {report_id} enviado al webhook de n8n ({len(photos)} imágenes)")
+                    webhook_response = await send_to_n8n_webhook(report_payload)
+                    webhook_results.append(webhook_response)
+                    if webhook_response.get("success"):
+                        print(f"✅ [n8n] Reporte {report_id} imagen {idx+1}/{total_images} enviada a n8n")
+                    else:
+                        print(f"⚠️ [n8n] Error enviando imagen {idx+1}/{total_images} del reporte {report_id}: {webhook_response.get('error')}")
                 except Exception as e:
-                    print(f"⚠️ [n8n] Error enviando reporte a n8n (no crítico): {str(e)}")
-                    # No fallar la creación del reporte si falla el envío a n8n
+                    print(f"⚠️ [n8n] Error inesperado enviando reporte {report_id} a n8n: {str(e)}")
+            created_report["n8n_results"] = webhook_results
         
         return {"report": created_report, "message": "Reporte creado exitosamente"}
     except Exception as e:
@@ -231,20 +228,19 @@ async def update_report(
         sb = _sb()
         
         # Obtener el reporte actual para verificar si tiene embedding
-        current_result = sb.table("reports").select("id, photos, embedding").eq("id", report_id).single().execute()
+        current_result = sb.table("reports").select("id, photos, embedding").eq("id", report_id).execute()
+        current_report = current_result.data[0] if current_result.data else None
         
-        if not current_result.data:
+        if not current_report:
             raise HTTPException(404, "Reporte no encontrado")
-        
-        current_report = current_result.data
         
         # Actualizar reporte
-        result = sb.table("reports").update(updates).eq("id", report_id).select("*").execute()
+        result = sb.table("reports").update(updates).eq("id", report_id).execute()
         
-        if not result.data or len(result.data) == 0:
+        if not result.data:
             raise HTTPException(404, "Reporte no encontrado")
         
-        updated_report = result.data[0] if isinstance(result.data, list) else result.data
+        updated_report = result.data[0]
         
         # Generar embedding si:
         # 1. Hay fotos nuevas o actualizadas
@@ -252,7 +248,7 @@ async def update_report(
         photos = updated_report.get("photos") or updates.get("photos", [])
         has_embedding = current_report.get("embedding") is not None
         
-        if photos and isinstance(photos, list) and len(photos) > 0:
+        if GENERATE_EMBEDDINGS_LOCALLY and photos and isinstance(photos, list) and len(photos) > 0:
             first_photo = photos[0]
             if first_photo and (not has_embedding or "photos" in updates):
                 print(f"📸 [embedding] Reporte actualizado con fotos. Generando embedding para reporte {report_id}...")
@@ -263,36 +259,8 @@ async def update_report(
                 except Exception as e:
                     print(f"⚠️ [embedding] Error generando embedding (no crítico): {str(e)}")
                     # No fallar la actualización del reporte si falla el embedding
-                
-                # Enviar automáticamente al webhook de n8n si hay fotos nuevas
-                if "photos" in updates:
-                    try:
-                        print(f"📤 [n8n] Enviando reporte actualizado {report_id} al webhook de n8n...")
-                        webhook_url = get_n8n_webhook_url()
-                        
-                        # Enviar cada foto nueva al webhook (en background)
-                        for idx, photo_url in enumerate(photos):
-                            report_payload = {
-                                "report_id": report_id,
-                                "image_url": photo_url,
-                                "image_index": idx,
-                                "total_images": len(photos),
-                                "species": updated_report.get("species"),
-                                "type": updated_report.get("type"),
-                                "status": updated_report.get("status"),
-                                "created_at": updated_report.get("created_at"),
-                                "has_labels": updated_report.get("labels") is not None
-                            }
-                            
-                            # Enviar en background para no bloquear
-                            if background_tasks:
-                                background_tasks.add_task(send_to_n8n_webhook, report_payload, webhook_url)
-                            else:
-                                asyncio.create_task(send_to_n8n_webhook(report_payload, webhook_url))
-                        
-                        print(f"✅ [n8n] Reporte actualizado {report_id} enviado al webhook de n8n ({len(photos)} imágenes)")
-                    except Exception as e:
-                        print(f"⚠️ [n8n] Error enviando reporte actualizado a n8n (no crítico): {str(e)}")
+        elif photos and isinstance(photos, list) and len(photos) > 0 and (not has_embedding or "photos" in updates):
+            print("ℹ️ [embedding] Generación local desactivada. La IA externa actualizará el embedding si corresponde.")
         
         return {"report": updated_report, "message": "Reporte actualizado exitosamente"}
     except Exception as e:
@@ -307,7 +275,7 @@ async def delete_report(report_id: str):
         sb = _sb()
         result = sb.table("reports").update({"status": "cancelled"}).eq("id", report_id).execute()
         
-        if not result.data or len(result.data) == 0:
+        if not result.data:
             raise HTTPException(404, "Reporte no encontrado")
         
         return {"message": "Reporte eliminado exitosamente"}
@@ -324,13 +292,12 @@ async def resolve_report(report_id: str):
         result = sb.table("reports").update({
             "status": "resolved",
             "resolved_at": "now()"
-        }).eq("id", report_id).select("*").execute()
+        }).eq("id", report_id).execute()
         
-        if not result.data or len(result.data) == 0:
+        if not result.data:
             raise HTTPException(404, "Reporte no encontrado")
         
-        updated_report = result.data[0] if isinstance(result.data, list) else result.data
-        return {"report": updated_report, "message": "Reporte marcado como resuelto"}
+        return {"report": result.data[0], "message": "Reporte marcado como resuelto"}
     except Exception as e:
         if "404" in str(e):
             raise e

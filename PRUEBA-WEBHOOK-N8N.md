@@ -245,3 +245,11 @@ Si todo funciona, el flujo es:
 3. n8n envía resultados → Backend ✅
 4. Backend actualiza → Supabase ✅
 
+
+
+
+
+
+
+
+

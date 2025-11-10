@@ -14,6 +14,28 @@ def get_supabase():
         raise RuntimeError("SUPABASE_URL o SUPABASE_SERVICE_KEY no configuradas")
     return create_client(url, key)
 
+@router.post("/generate")
+async def generate_embedding(file: UploadFile = File(...)):
+    """
+    Genera un embedding de 512 dimensiones para una imagen.
+    """
+    try:
+        image_bytes = await file.read()
+        if not image_bytes:
+            raise HTTPException(400, "Archivo vacío o no leído")
+        
+        vec = image_bytes_to_vec(image_bytes)
+        
+        return {
+            "embedding": vec.tolist(),
+            "dimensions": len(vec),
+            "model": "CLIP ViT-B/32",
+            "file_name": file.filename,
+            "file_size": len(image_bytes)
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Error generando embedding: {str(e)}")
+
 @router.post("/index/{report_id}")
 async def index_report_embedding(report_id: str, file: UploadFile = File(...)):
     try:
@@ -123,7 +145,7 @@ async def search_image(
                     "lost_report_id": lost_id,
                     "found_report_id": top1["report_id"],
                     "similarity_score": round(top1["score_clip"], 4),
-                    "matched_by": "auto_clip",
+                    "matched_by": "ai_visual",  # Usa embeddings de imágenes (OpenCLIP)
                     "status": "pending"
                 }).execute()
             except Exception as e:

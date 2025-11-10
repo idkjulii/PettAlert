@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
+import apiService from './api';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://eamsbroadstwkrkjcuvo.supabase.co';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhbXNicm9hZHN0d2tya2pjdXZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3MjQ3ODgsImV4cCI6MjA3NTMwMDc4OH0.bzFaxK25SPMKE5REMxRyK9jPj1n8ocDrn_u6qyMTXEw';
@@ -27,12 +28,26 @@ const ExpoSecureStoreAdapter = {
   },
 };
 
+// Verificar que tenemos las credenciales necesarias
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('❌ Supabase URL y API Key son requeridos');
+}
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: ExpoSecureStoreAdapter,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+  },
+  db: {
+    schema: 'public',
+  },
+  // Asegurar que los headers se envíen correctamente
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
   },
 });
 
@@ -152,6 +167,61 @@ const profileService = {
       return { data: null, error };
     }
   },
+
+  // Ensure a profile exists for a user, creating it if necessary
+  ensureProfile: async (userId, userData = {}) => {
+    try {
+      // First, check if profile exists
+      const { data: existingProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      // If profile exists, return it
+      if (existingProfile && !fetchError) {
+        return { data: existingProfile, error: null };
+      }
+
+      // If profile doesn't exist, create it
+      // Get user data from auth if available
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      
+      const profileData = {
+        id: userId,
+        full_name: userData.full_name || authUser?.user_metadata?.full_name || authUser?.email?.split('@')[0] || 'Usuario',
+        avatar_url: userData.avatar_url || null,
+        phone: userData.phone || null,
+        location: userData.location || null,
+      };
+
+      const { data: newProfile, error: insertError } = await supabase
+        .from('profiles')
+        .insert([profileData])
+        .select()
+        .single();
+
+      if (insertError) {
+        // If insert fails, it might be because profile was created between check and insert
+        // Try fetching again
+        const { data: retryProfile, error: retryError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (retryProfile && !retryError) {
+          return { data: retryProfile, error: null };
+        }
+        throw insertError;
+      }
+
+      return { data: newProfile, error: null };
+    } catch (error) {
+      console.error('Error ensuring profile:', error);
+      return { data: null, error };
+    }
+  },
 };
 
 const petService = {
@@ -248,47 +318,6 @@ const petService = {
 };
 
 // Función auxiliar para calcular distancia entre dos puntos
-// Función para extraer coordenadas de diferentes formatos de location
-const extractCoordinatesFromLocation = (locationData) => {
-  if (!locationData) {
-    return null;
-  }
-  
-  // Formato PostGIS: "SRID=4326;POINT(lon lat)"
-  if (typeof locationData === 'string' && locationData.includes('POINT(')) {
-    try {
-      const coordsStr = locationData.split('POINT(')[1].split(')')[0];
-      const [longitude, latitude] = coordsStr.split(' ').map(parseFloat);
-      return { latitude, longitude };
-    } catch (error) {
-      console.warn('Error parsing PostGIS POINT:', error);
-      return null;
-    }
-  }
-  
-  // Formato GeoJSON: {"type":"Point","coordinates":[lon,lat]}
-  if (typeof locationData === 'object' && locationData.type === 'Point' && locationData.coordinates) {
-    try {
-      const [longitude, latitude] = locationData.coordinates;
-      return { latitude, longitude };
-    } catch (error) {
-      console.warn('Error parsing GeoJSON Point:', error);
-      return null;
-    }
-  }
-  
-  // Si ya tiene latitude y longitude directamente
-  if (typeof locationData === 'object' && locationData.latitude && locationData.longitude) {
-    return {
-      latitude: parseFloat(locationData.latitude),
-      longitude: parseFloat(locationData.longitude)
-    };
-  }
-  
-  console.warn('Formato de location no reconocido:', locationData);
-  return null;
-};
-
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3; // Radio de la Tierra en metros
   const φ1 = (lat1 * Math.PI) / 180;
@@ -304,46 +333,122 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
+// Función auxiliar para hacer llamadas RPC con headers explícitos
+const rpcCall = async (functionName, params = {}) => {
+  try {
+    // Obtener la sesión actual para incluir el token de autenticación si existe
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    // Hacer la llamada RPC con el cliente configurado
+    const { data, error } = await supabase.rpc(functionName, params);
+    
+    if (error) {
+      console.error(`❌ Error en RPC ${functionName}:`, error);
+      // Si el error es por falta de API key, intentar con fetch directo
+      if (error.message && error.message.includes('API key')) {
+        console.warn('⚠️ Intentando llamada RPC directa con fetch...');
+        const response = await fetch(`${supabaseUrl}/rest/v1/rpc/${functionName}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey,
+            'Authorization': session ? `Bearer ${session.access_token}` : `Bearer ${supabaseAnonKey}`,
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify(params),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        return { data, error: null };
+      }
+      throw error;
+    }
+    
+    return { data, error: null };
+  } catch (error) {
+    console.error(`❌ Error en rpcCall para ${functionName}:`, error);
+    return { data: null, error };
+  }
+};
+
 const reportService = {
   createReport: async (reportData) => {
     try {
-      console.log('📝 Creando reporte con datos:', {
-        type: reportData.type,
-        pet_name: reportData.pet_name,
-        species: reportData.species,
-        location: reportData.location,
-        reporter_id: reportData.reporter_id
-      });
-      
-      const { data, error } = await supabase
-        .from('reports')
-        .insert([reportData])
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('❌ Error creando reporte:', error);
-        throw error;
+      // Ensure profile exists before creating report
+      if (reportData.reporter_id) {
+        const { error: profileError } = await profileService.ensureProfile(reportData.reporter_id);
+        if (profileError) {
+          console.error('Error ensuring profile:', profileError);
+          // Continue anyway, but log the error
+        }
       }
-      
-      console.log('✅ Reporte creado exitosamente:', {
-        id: data.id,
-        type: data.type,
-        pet_name: data.pet_name,
-        created_at: data.created_at
-      });
-      
-      return { data, error: null };
+
+      // IMPORTANTE: Usar el endpoint del backend para que genere embeddings automáticamente
+      // Si el backend no está disponible, fallback a Supabase directo
+      try {
+        console.log('📤 Creando reporte a través del backend (generación automática de embeddings)...');
+        const backendResult = await apiService.createReport(reportData);
+        
+        if (backendResult.error) {
+          throw backendResult.error;
+        }
+        
+        if (backendResult.data?.report) {
+          console.log('✅ Reporte creado a través del backend. Embeddings se generarán automáticamente.');
+          return { data: backendResult.data.report, error: null };
+        }
+        
+        // Si el formato de respuesta es diferente, intentar con Supabase directo
+        throw new Error('Formato de respuesta inesperado del backend');
+        
+      } catch (backendError) {
+        console.warn('⚠️ Backend no disponible, creando reporte directamente en Supabase:', backendError.message);
+        console.warn('   Los embeddings NO se generarán automáticamente.');
+        
+        // Fallback: crear directamente en Supabase
+        const { data, error } = await supabase
+          .from('reports')
+          .insert([reportData])
+          .select()
+          .single();
+        
+        if (error) throw error;
+
+        return { data, error: null };
+      }
     } catch (error) {
-      console.error('❌ Error en createReport:', error);
+      return { data: null, error };
+    }
+  },
+
+  requestMatchesAnalysis: async (reportId) => {
+    try {
+      const result = await apiService.sendReportToN8n(reportId);
+      if (result.error) throw result.error;
+      return { data: result.data, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  getMatchesForReport: async (reportId) => {
+    try {
+      const result = await apiService.getMatchesForReport(reportId);
+      if (result.error) throw result.error;
+      return { data: result.data, error: null };
+    } catch (error) {
       return { data: null, error };
     }
   },
 
   getReportById: async (reportId) => {
     try {
-      const { data, error } = await supabase
-        .rpc('get_report_by_id_with_coords', { report_id: reportId });
+      const { data, error } = await rpcCall('get_report_by_id_with_coords', { report_id: reportId });
       
       if (error) throw error;
       
@@ -362,8 +467,7 @@ const reportService = {
 
   getUserReports: async (userId) => {
     try {
-      const { data, error } = await supabase
-        .rpc('get_user_reports_with_coords', { user_id: userId });
+      const { data, error } = await rpcCall('get_user_reports_with_coords', { user_id: userId });
       
       if (error) throw error;
       return { data, error: null };
@@ -374,8 +478,7 @@ const reportService = {
 
   getAllReports: async () => {
     try {
-      const { data, error } = await supabase
-        .rpc('get_reports_with_coords');
+      const { data, error } = await rpcCall('get_reports_with_coords');
       
       if (error) throw error;
       return { data: data || [], error: null };
@@ -386,46 +489,23 @@ const reportService = {
 
   getReportsSimple: async () => {
     try {
-      console.log('🔄 Obteniendo todos los reportes activos directamente...');
-      
-      // Consultar directamente la tabla reports sin usar RPC
-      const { data, error } = await supabase
-        .from('reports')
-        .select('*')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
+      console.log('🔄 Obteniendo todos los reportes activos...');
+      const { data, error } = await rpcCall('get_reports_with_coords');
       
       if (error) {
         console.error('❌ Error obteniendo reportes:', error);
         throw error;
       }
       
-      // Procesar los reportes para extraer coordenadas
-      const processedReports = data?.map(report => {
-        const coords = extractCoordinatesFromLocation(report.location);
-        return {
-          ...report,
-          latitude: coords?.latitude,
-          longitude: coords?.longitude,
-          hasValidCoords: !!(coords?.latitude && coords?.longitude)
-        };
-      }) || [];
-      
-      console.log(`✅ Obtenidos ${processedReports.length} reportes activos`);
-      if (processedReports.length > 0) {
+      console.log(`✅ Obtenidos ${data?.length || 0} reportes activos`);
+      if (data && data.length > 0) {
         console.log('📍 Primeras coordenadas:', {
-          id: processedReports[0].id,
-          type: processedReports[0].type,
-          pet_name: processedReports[0].pet_name,
-          latitude: processedReports[0].latitude,
-          longitude: processedReports[0].longitude,
-          hasValidCoords: processedReports[0].hasValidCoords,
-          location: processedReports[0].location
+          id: data[0].id,
+          latitude: data[0].latitude,
+          longitude: data[0].longitude
         });
-      } else {
-        console.log('⚠️ No se encontraron reportes en la base de datos');
       }
-      return { data: processedReports, error: null };
+      return { data: data || [], error: null };
     } catch (error) {
       console.error('❌ Error en getReportsSimple:', error);
       return { data: null, error };
@@ -434,46 +514,53 @@ const reportService = {
 
   getNearbyReports: async (latitude, longitude, radiusMeters = 5000) => {
     try {
-      console.log(`🔍 Buscando reportes cercanos a ${latitude}, ${longitude} en radio de ${radiusMeters}m`);
+      const { data: rpcData, error: rpcError } = await rpcCall('nearby_reports', {
+        lat: latitude,
+        lng: longitude,
+        radius_meters: radiusMeters,
+      });
       
-      // Consultar directamente la tabla reports
-      const { data, error } = await supabase
-        .from('reports')
-        .select('*')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('❌ Error obteniendo reportes:', error);
-        throw error;
+      if (rpcError) {
+        console.warn('⚠️ RPC nearby_reports falló, usando método alternativo:', rpcError.message);
+        const { data: allReports, error: allError } = await rpcCall('get_reports_with_coords');
+        
+        if (allError) throw allError;
+        
+        const nearbyReports = allReports
+          .filter(report => {
+            if (!report.latitude || !report.longitude) return false;
+            
+            const distance = calculateDistance(
+              latitude, 
+              longitude, 
+              report.latitude, 
+              report.longitude
+            );
+            
+            report.distance_meters = distance;
+            return distance <= radiusMeters;
+          })
+          .sort((a, b) => a.distance_meters - b.distance_meters);
+        
+        console.log(`✅ Filtrados ${nearbyReports.length} reportes cercanos (método local)`);
+        return { data: nearbyReports, error: null };
       }
       
-      // Procesar y filtrar reportes por distancia
-      const nearbyReports = data
-        ?.map(report => {
-          const coords = extractCoordinatesFromLocation(report.location);
-          if (!coords) return null;
-          
-          const distance = calculateDistance(
-            latitude,
-            longitude,
-            coords.latitude,
-            coords.longitude
-          );
-          
-          return {
-            ...report,
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-            distance_meters: distance,
-            hasValidCoords: true
-          };
-        })
-        .filter(report => report && report.distance_meters <= radiusMeters)
-        .sort((a, b) => a.distance_meters - b.distance_meters) || [];
+      const reportIds = rpcData.map(r => r.id);
+      const { data: fullReports, error: reportsError } = await rpcCall('get_reports_with_coords');
       
-      console.log(`✅ Encontrados ${nearbyReports.length} reportes cercanos`);
-      return { data: nearbyReports, error: null };
+      if (reportsError) throw reportsError;
+      
+      const filtered = fullReports.filter(report => reportIds.includes(report.id));
+      const reportsWithDistance = filtered.map(report => {
+        const distanceData = rpcData.find(d => d.id === report.id);
+        return {
+          ...report,
+          distance_meters: distanceData?.distance_meters || 0,
+        };
+      });
+      
+      return { data: reportsWithDistance, error: null };
     } catch (error) {
       console.error('❌ Error en getNearbyReports:', error);
       return { data: null, error };
@@ -482,15 +569,37 @@ const reportService = {
 
   updateReport: async (reportId, updates) => {
     try {
-      const { data, error } = await supabase
-        .from('reports')
-        .update(updates)
-        .eq('id', reportId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return { data, error: null };
+      // Usar el endpoint del backend para que genere embeddings automáticamente si hay fotos nuevas
+      try {
+        console.log('📤 Actualizando reporte a través del backend (generación automática de embeddings)...');
+        const backendResult = await apiService.updateReport(reportId, updates);
+        
+        if (backendResult.error) {
+          throw backendResult.error;
+        }
+        
+        if (backendResult.data?.report) {
+          console.log('✅ Reporte actualizado a través del backend. Embeddings se generarán automáticamente si hay fotos nuevas.');
+          return { data: backendResult.data.report, error: null };
+        }
+        
+        throw new Error('Formato de respuesta inesperado del backend');
+        
+      } catch (backendError) {
+        console.warn('⚠️ Backend no disponible, actualizando reporte directamente en Supabase:', backendError.message);
+        
+        // Fallback: actualizar directamente en Supabase
+        const { data, error } = await supabase
+          .from('reports')
+          .update(updates)
+          .eq('id', reportId)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        return { data, error: null };
+      }
     } catch (error) {
       return { data: null, error };
     }
@@ -503,6 +612,24 @@ const reportService = {
         .update({
           status: 'resolved',
           resolved_at: new Date().toISOString(),
+        })
+        .eq('id', reportId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  deleteReport: async (reportId) => {
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .update({
+          status: 'cancelled',
         })
         .eq('id', reportId)
         .select()
@@ -605,3 +732,4 @@ const messageService = {
 export {
     authService, messageService, petService, profileService, reportService, supabase
 };
+

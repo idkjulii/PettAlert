@@ -1,7 +1,8 @@
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     Image,
     KeyboardAvoidingView,
@@ -45,7 +46,11 @@ const SIZE_OPTIONS = [
 
 export default function CreateFoundReportScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { user } = useAuthStore();
+  
+  const reportId = params.reportId;
+  const isEditMode = params.editMode === 'true' && reportId;
   
   // Estados del formulario
   const [species, setSpecies] = useState('');
@@ -57,15 +62,78 @@ export default function CreateFoundReportScreen() {
   const [foundLocation, setFoundLocation] = useState('');
   const [foundDate, setFoundDate] = useState('');
   const [photos, setPhotos] = useState([]);
+  const [existingPhotos, setExistingPhotos] = useState([]);
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loadingReport, setLoadingReport] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
 
   useEffect(() => {
-    getCurrentLocationAndAddress();
-    setFoundDate(new Date().toISOString().split('T')[0]); // Fecha actual
-  }, []);
+    if (isEditMode && reportId) {
+      loadReportData();
+    } else {
+      getCurrentLocationAndAddress();
+      setFoundDate(new Date().toISOString().split('T')[0]); // Fecha actual
+    }
+  }, [isEditMode, reportId]);
+
+  const loadReportData = async () => {
+    try {
+      setLoadingReport(true);
+      const { data, error } = await reportService.getReportById(reportId);
+      
+      if (error || !data) {
+        Alert.alert('Error', 'No se pudo cargar el reporte. Por favor, intenta de nuevo.');
+        router.back();
+        return;
+      }
+
+      // Verificar que el usuario es el dueño del reporte
+      if (data.reporter_id !== user.id) {
+        Alert.alert('Error', 'No tienes permiso para editar este reporte.');
+        router.back();
+        return;
+      }
+
+      // Cargar datos del reporte
+      setSpecies(data.species || '');
+      setBreed(data.breed || '');
+      setColor(data.color || '');
+      setSize(data.size || '');
+      setDescription(data.description || '');
+      setDistinctiveFeatures(data.distinctive_features || '');
+      setFoundLocation(data.location_details || '');
+      setFoundDate(data.incident_date ? data.incident_date.split('T')[0] : new Date().toISOString().split('T')[0]);
+      
+      // Cargar fotos existentes
+      if (data.photos && data.photos.length > 0) {
+        setExistingPhotos(data.photos);
+      }
+
+      // Cargar ubicación
+      if (data.latitude && data.longitude) {
+        const geocodeResult = await reverseGeocode(data.latitude, data.longitude);
+        setLocation({
+          latitude: data.latitude,
+          longitude: data.longitude,
+          address: data.address || geocodeResult.address || `Ubicación: ${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`,
+        });
+        setSelectedLocation({
+          latitude: data.latitude,
+          longitude: data.longitude,
+        });
+      } else {
+        getCurrentLocationAndAddress();
+      }
+    } catch (error) {
+      console.error('Error cargando reporte:', error);
+      Alert.alert('Error', 'Ocurrió un error al cargar el reporte.');
+      router.back();
+    } finally {
+      setLoadingReport(false);
+    }
+  };
 
   const getCurrentLocationAndAddress = async () => {
     try {
@@ -103,7 +171,7 @@ export default function CreateFoundReportScreen() {
   };
 
   const pickImage = async () => {
-    if (photos.length >= 5) {
+    if ((existingPhotos.length + photos.length) >= 5) {
       Alert.alert('Límite alcanzado', 'Máximo 5 fotos permitidas');
       return;
     }
@@ -127,7 +195,7 @@ export default function CreateFoundReportScreen() {
   };
 
   const takePhoto = async () => {
-    if (photos.length >= 5) {
+    if ((existingPhotos.length + photos.length) >= 5) {
       Alert.alert('Límite alcanzado', 'Máximo 5 fotos permitidas');
       return;
     }
@@ -151,6 +219,11 @@ export default function CreateFoundReportScreen() {
   const removePhoto = (index) => {
     const newPhotos = photos.filter((_, i) => i !== index);
     setPhotos(newPhotos);
+  };
+
+  const removeExistingPhoto = (index) => {
+    const newExistingPhotos = existingPhotos.filter((_, i) => i !== index);
+    setExistingPhotos(newExistingPhotos);
   };
 
   const handleLocationSelect = async (coordinates) => {
@@ -204,7 +277,8 @@ export default function CreateFoundReportScreen() {
       Alert.alert('Error', 'Por favor ingresa cuándo la encontraste');
       return false;
     }
-    if (photos.length === 0) {
+    // En modo edición, considerar fotos existentes también
+    if ((existingPhotos.length + photos.length) === 0) {
       Alert.alert('Error', 'Por favor agrega al menos una foto');
       return false;
     }
@@ -221,61 +295,77 @@ export default function CreateFoundReportScreen() {
     try {
       setLoading(true);
 
-      // Subir fotos
-      let photoUrls = [];
+      // Subir fotos nuevas (si hay)
+      let newPhotoUrls = [];
       if (photos.length > 0) {
         const uploadResult = await storageService.uploadReportPhotos(user.id, Date.now().toString(), photos);
         if (uploadResult.error) {
           throw new Error('Error subiendo fotos: ' + uploadResult.error.message);
         }
-        photoUrls = uploadResult.urls;
+        newPhotoUrls = uploadResult.urls;
       }
 
-      // Crear reporte
+      // Combinar fotos existentes con nuevas
+      const allPhotoUrls = [...existingPhotos, ...newPhotoUrls];
+
+      // Preparar datos del reporte
       const reportData = {
-        type: 'found',
-        reporter_id: user.id,
-        pet_name: null, // No conocemos el nombre
         species,
         breed: breed.trim() || null,
         color: color.trim() || null,
         size,
         description: description.trim(),
         distinctive_features: distinctiveFeatures.trim() || null,
-        photos: photoUrls,
+        photos: allPhotoUrls,
         location: `SRID=4326;POINT(${location.longitude} ${location.latitude})`,
         address: location.address,
         location_details: foundLocation.trim(),
         incident_date: foundDate,
-        status: 'active',
       };
 
-      const { data, error } = await reportService.createReport(reportData);
-
-      if (error) {
-        throw new Error(error.message || 'Error creando reporte');
+      let result;
+      if (isEditMode && reportId) {
+        // Actualizar reporte existente
+        const { data, error } = await reportService.updateReport(reportId, reportData);
+        if (error) {
+          throw new Error(error.message || 'Error actualizando reporte');
+        }
+        result = data;
+      } else {
+        // Crear nuevo reporte
+        const fullReportData = {
+          ...reportData,
+          type: 'found',
+          reporter_id: user.id,
+          pet_name: null, // No conocemos el nombre
+          status: 'active',
+        };
+        const { data, error } = await reportService.createReport(fullReportData);
+        if (error) {
+          throw new Error(error.message || 'Error creando reporte');
+        }
+        result = data;
       }
 
       Alert.alert(
-        '¡Reporte creado!',
-        'Tu reporte de mascota encontrada ha sido publicado. Ayudarás a reunir a la mascota con su familia.',
+        isEditMode ? '¡Reporte actualizado!' : '¡Reporte creado!',
+        isEditMode 
+          ? 'Tu reporte de mascota encontrada ha sido actualizado exitosamente.'
+          : 'Tu reporte de mascota encontrada ha sido publicado. Ayudarás a reunir a la mascota con su familia.',
         [
           {
             text: 'Ver reporte',
-            onPress: () => router.push(`/report/${data.id}`),
+            onPress: () => router.push(`/report/${result.id}`),
           },
           {
-            text: 'Volver al mapa',
-            onPress: () => {
-              console.log('🔄 Regresando al mapa después de crear reporte');
-              router.push('/(tabs)');
-            },
+            text: 'Volver',
+            onPress: () => router.back(),
           },
         ]
       );
     } catch (error) {
-      console.error('Error creando reporte:', error);
-      Alert.alert('Error', error.message || 'No se pudo crear el reporte');
+      console.error(`Error ${isEditMode ? 'actualizando' : 'creando'} reporte:`, error);
+      Alert.alert('Error', error.message || `No se pudo ${isEditMode ? 'actualizar' : 'crear'} el reporte`);
     } finally {
       setLoading(false);
     }
@@ -291,22 +381,32 @@ export default function CreateFoundReportScreen() {
           style={styles.backButton}
         />
         <View style={styles.headerContent}>
-          <Title style={styles.title}>🟢 Reportar Mascota Encontrada</Title>
+          <Title style={styles.title}>
+            {isEditMode ? '✏️ Editar Reporte' : '🟢 Reportar Mascota Encontrada'}
+          </Title>
           <Paragraph style={styles.subtitle}>
-            Ayuda a reunir a esta mascota con su familia
+            {isEditMode 
+              ? 'Actualiza la información de tu reporte'
+              : 'Ayuda a reunir a esta mascota con su familia'}
           </Paragraph>
         </View>
       </View>
       
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoid}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+      {loadingReport ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4CAF50" />
+          <Text style={styles.loadingText}>Cargando reporte...</Text>
+        </View>
+      ) : (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoid}
         >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
 
           <Card style={styles.card}>
             <Card.Content style={styles.cardContent}>
@@ -438,7 +538,7 @@ export default function CreateFoundReportScreen() {
                   onPress={pickImage}
                   icon="image"
                   style={styles.photoButton}
-                  disabled={photos.length >= 5}
+                  disabled={(existingPhotos.length + photos.length) >= 5}
                 >
                   Galería
                 </Button>
@@ -447,16 +547,27 @@ export default function CreateFoundReportScreen() {
                   onPress={takePhoto}
                   icon="camera"
                   style={styles.photoButton}
-                  disabled={photos.length >= 5}
+                  disabled={(existingPhotos.length + photos.length) >= 5}
                 >
                   Cámara
                 </Button>
               </View>
 
-              {photos.length > 0 && (
+              {(existingPhotos.length > 0 || photos.length > 0) && (
                 <View style={styles.photosContainer}>
+                  {existingPhotos.map((photo, index) => (
+                    <View key={`existing-${index}`} style={styles.photoItem}>
+                      <Image source={{ uri: photo }} style={styles.photoPreview} />
+                      <TouchableOpacity
+                        style={styles.removePhotoButton}
+                        onPress={() => removeExistingPhoto(index)}
+                      >
+                        <Text style={styles.removePhotoText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
                   {photos.map((photo, index) => (
-                    <View key={index} style={styles.photoItem}>
+                    <View key={`new-${index}`} style={styles.photoItem}>
                       <Image source={{ uri: photo }} style={styles.photoPreview} />
                       <TouchableOpacity
                         style={styles.removePhotoButton}
@@ -470,7 +581,7 @@ export default function CreateFoundReportScreen() {
               )}
 
               <HelperText type="info" style={styles.helperText}>
-                {photos.length}/5 fotos seleccionadas
+                {(existingPhotos.length + photos.length)}/5 fotos seleccionadas
               </HelperText>
             </Card.Content>
           </Card>
@@ -532,11 +643,12 @@ export default function CreateFoundReportScreen() {
               style={styles.createButton}
               contentStyle={styles.createButtonContent}
             >
-              Crear Reporte
+              {isEditMode ? 'Actualizar Reporte' : 'Crear Reporte'}
             </Button>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 }
@@ -557,11 +669,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-    minHeight: 80,
   },
   backButton: {
     marginRight: 8,
@@ -569,23 +680,19 @@ const styles = StyleSheet.create({
   headerContent: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
   },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#34C759',
-    marginBottom: 6,
+    marginBottom: 8,
     textAlign: 'center',
-    lineHeight: 24,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#666',
     textAlign: 'center',
-    lineHeight: 18,
-    paddingHorizontal: 8,
+    lineHeight: 22,
   },
   card: {
     marginBottom: 16,
@@ -722,5 +829,16 @@ const styles = StyleSheet.create({
   },
   createButtonContent: {
     paddingVertical: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
   },
 });
