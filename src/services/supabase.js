@@ -646,29 +646,60 @@ const reportService = {
 const messageService = {
   getOrCreateConversation: async (reportId, participant1, participant2) => {
     try {
-      const { data: existing, error: fetchError } = await supabase
+      const { data: existing } = await supabase
         .from('conversations')
         .select('*')
         .eq('report_id', reportId)
         .or(`and(participant_1.eq.${participant1},participant_2.eq.${participant2}),and(participant_1.eq.${participant2},participant_2.eq.${participant1})`)
-        .single();
-      
+        .maybeSingle();
+
       if (existing) {
         return { data: existing, error: null };
       }
-      
+
       const { data, error } = await supabase
         .from('conversations')
-        .insert([{
-          report_id: reportId,
-          participant_1: participant1,
-          participant_2: participant2,
-        }])
+        .insert([
+          {
+            report_id: reportId,
+            participant_1: participant1,
+            participant_2: participant2,
+          },
+        ])
         .select()
         .single();
-      
+
       if (error) throw error;
       return { data, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  getUserConversations: async (userId) => {
+    try {
+      const { data, error } = await rpcCall('get_user_conversations', {
+        p_user_id: userId,
+      });
+
+      if (error) throw error;
+      return { data: data || [], error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  getConversationById: async (conversationId, userId) => {
+    try {
+      const { data, error } = await rpcCall('get_conversation_detail', {
+        p_conversation_id: conversationId,
+        p_user_id: userId,
+      });
+
+      if (error) throw error;
+
+      const conversation = Array.isArray(data) ? data[0] : data;
+      return { data: conversation || null, error: null };
     } catch (error) {
       return { data: null, error };
     }
@@ -678,15 +709,17 @@ const messageService = {
     try {
       const { data, error } = await supabase
         .from('messages')
-        .insert([{
-          conversation_id: conversationId,
-          sender_id: senderId,
-          content,
-          image_url: imageUrl,
-        }])
+        .insert([
+          {
+            conversation_id: conversationId,
+            sender_id: senderId,
+            content,
+            image_url: imageUrl,
+          },
+        ])
         .select()
         .single();
-      
+
       if (error) throw error;
       return { data, error: null };
     } catch (error) {
@@ -694,17 +727,28 @@ const messageService = {
     }
   },
 
-  getMessages: async (conversationId) => {
+  getMessages: async (conversationId, { limit = 50, cursor = null } = {}) => {
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          *,
-          sender:profiles!sender_id(id, full_name, avatar_url)
-        `)
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-      
+      const { data, error } = await rpcCall('get_conversation_messages', {
+        p_conversation_id: conversationId,
+        p_limit: limit,
+        p_cursor: cursor,
+      });
+
+      if (error) throw error;
+      return { data: data || [], error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  markConversationAsRead: async (conversationId, userId) => {
+    try {
+      const { data, error } = await rpcCall('mark_conversation_messages_read', {
+        p_conversation_id: conversationId,
+        p_user_id: userId,
+      });
+
       if (error) throw error;
       return { data, error: null };
     } catch (error) {
@@ -712,8 +756,8 @@ const messageService = {
     }
   },
 
-  subscribeToMessages: (conversationId, callback) => {
-    return supabase
+  subscribeToMessages: (conversationId, { onInsert, onUpdate } = {}) => {
+    const channel = supabase
       .channel(`messages:${conversationId}`)
       .on(
         'postgres_changes',
@@ -723,13 +767,148 @@ const messageService = {
           table: 'messages',
           filter: `conversation_id=eq.${conversationId}`,
         },
-        callback
+        (payload) => {
+          onInsert?.(payload.new, payload);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          onUpdate?.(payload.new, payload);
+        }
       )
       .subscribe();
+
+    return channel;
+  },
+
+  subscribeToConversations: (userId, callback) => {
+    if (!userId) return null;
+
+    const channel = supabase
+      .channel(`conversations:user:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+        },
+        (payload) => {
+          const participants = [
+            payload.new?.participant_1,
+            payload.new?.participant_2,
+            payload.old?.participant_1,
+            payload.old?.participant_2,
+          ].filter(Boolean);
+
+          if (participants.includes(userId)) {
+            callback?.(payload);
+          }
+        }
+      )
+      .subscribe();
+
+    return channel;
+  },
+
+  removeChannel: (channel) => {
+    if (!channel) return;
+    supabase.removeChannel(channel);
+  },
+};
+
+const notificationService = {
+  registerToken: async ({ userId, expoPushToken, platform, deviceId }) => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const sessionUserId = session?.user?.id;
+
+      if (!sessionUserId) {
+        console.info('[notificationService] Registro de push omitido: sin usuario autenticado.');
+        return { data: null, error: null };
+      }
+
+      if (userId && userId !== sessionUserId) {
+        console.warn(
+          '[notificationService] userId provisto no coincide con la sesión actual. Se usará auth.uid().'
+        );
+      }
+
+      const { data, error } = await rpcCall('register_push_token', {
+        p_user_id: sessionUserId,
+        p_expo_token: expoPushToken,
+        p_platform: platform,
+        p_device_id: deviceId || null,
+      });
+
+      if (error) throw error;
+
+      const tokenData = Array.isArray(data) ? data[0] : data;
+      return { data: tokenData, error: null };
+    } catch (error) {
+      if (error?.message === 'No hay un usuario autenticado') {
+        console.info('[notificationService] Registro de push abortado: sesión inexistente.');
+        return { data: null, error: null };
+      }
+      console.error('Error registrando push token:', error);
+      return { data: null, error };
+    }
+  },
+
+  getUserTokens: async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('push_tokens')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return { data: data || [], error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  removeTokenById: async (tokenId) => {
+    try {
+      const { error } = await supabase.from('push_tokens').delete().eq('id', tokenId);
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  },
+
+  removeTokenValue: async (userId, expoPushToken) => {
+    try {
+      const { error } = await supabase
+        .from('push_tokens')
+        .delete()
+        .match({
+          user_id: userId,
+          expo_token: expoPushToken,
+        });
+
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
   },
 };
 
 export {
-    authService, messageService, petService, profileService, reportService, supabase
+    authService, messageService, notificationService, petService, profileService, reportService, supabase
 };
 

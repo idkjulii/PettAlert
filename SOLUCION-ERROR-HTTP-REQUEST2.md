@@ -101,3 +101,5 @@ Esto generará un JSON válido que Supabase puede procesar correctamente.
 
 
 
+
+

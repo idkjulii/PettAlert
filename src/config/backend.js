@@ -4,16 +4,23 @@
 import { NETWORK_CONFIG } from './network';
 
 // URL del túnel temporal (Cloudflare quick tunnel en este caso)
-const NGROK_URL = 'https://lance-tmp-players-unexpected.trycloudflare.com';
+const TUNNEL_URL =
+  process.env.EXPO_PUBLIC_TUNNEL_URL ||
+  process.env.EXPO_PUBLIC_BACKEND_URL ||
+  'https://lovers-saver-examining-fcc.trycloudflare.com';
 
 // URL base del backend - prioridad: variable de entorno > ngrok > red local > localhost
 // Si ngrok está funcionando, se usará automáticamente
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || NGROK_URL || NETWORK_CONFIG?.BACKEND_URL || 'http://127.0.0.1:8003';
+const BACKEND_URL =
+  process.env.EXPO_PUBLIC_BACKEND_URL ||
+  TUNNEL_URL ||
+  NETWORK_CONFIG?.BACKEND_URL ||
+  'http://127.0.0.1:8003';
 
 // Log de depuración para ver qué URL se está usando
 console.log('🔧 [BACKEND CONFIG]');
 console.log('   EXPO_PUBLIC_BACKEND_URL:', process.env.EXPO_PUBLIC_BACKEND_URL || '(no definida)');
-console.log('   NGROK_URL:', NGROK_URL);
+console.log('   TUNNEL_URL:', TUNNEL_URL);
 console.log('   NETWORK_CONFIG.BACKEND_URL:', NETWORK_CONFIG?.BACKEND_URL || '(no definida)');
 console.log('   BACKEND_URL final:', BACKEND_URL);
 

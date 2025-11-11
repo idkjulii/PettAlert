@@ -178,7 +178,10 @@ export default function HomeScreen() {
 
       // Cerrar modal y navegar a la conversación
       setModalVisible(false);
-      router.push(`/chat/${conversation.id}`);
+      router.push({
+        pathname: '/messages/[conversationId]',
+        params: { conversationId: conversation.id },
+      });
     } catch (error) {
       console.error('Error contactando reportero:', error);
       Alert.alert('Error', 'Ocurrió un error al contactar al reportero');

@@ -58,3 +58,5 @@ Ahora el código cumple con el constraint CHECK de la base de datos y no deberí
 
 
 
+
+

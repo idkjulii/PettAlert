@@ -72,3 +72,5 @@ Write-Host "3. Verifica los resultados en Supabase" -ForegroundColor White
 
 
 
+
+

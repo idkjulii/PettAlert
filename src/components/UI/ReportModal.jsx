@@ -158,21 +158,21 @@ const ReportModal = ({
         <Card.Actions style={styles.actions}>
           <Button
             mode="outlined"
-            onPress={onViewDetails}
+            onPress={() => onViewDetails?.()}
             style={styles.detailsButton}
             compact
-          >
-            Ver detalles
-          </Button>
+            >
+              Ver detalles
+            </Button>
           <Button
             mode="contained"
             onPress={onContact}
             style={styles.contactButton}
             compact
             icon="message"
-          >
-            Contactar
-          </Button>
+            >
+              Contactar
+            </Button>
         </Card.Actions>
       </Card>
     </Modal>

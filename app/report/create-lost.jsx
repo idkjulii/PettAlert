@@ -28,7 +28,6 @@ import MapView from '../../src/components/Map/MapView';
 import { getCurrentLocation, reverseGeocode } from '../../src/services/location';
 import { storageService } from '../../src/services/storage';
 import { reportService } from '../../src/services/supabase';
-import { visionService } from '../../src/services/vision';
 import { useAuthStore } from '../../src/stores/authStore';
 
 const SPECIES_OPTIONS = [
@@ -224,32 +223,6 @@ export default function CreateLostReportScreen() {
   const removeExistingPhoto = (index) => {
     const newExistingPhotos = existingPhotos.filter((_, i) => i !== index);
     setExistingPhotos(newExistingPhotos);
-  };
-
-  const handleAnalyze = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-    });
-
-    if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      try {
-        const labels = await visionService.analyzeImage(uri);
-        console.log("Resultados IA:", labels);
-        
-        // Mostrar resultados en un alert
-        const labelsText = labels.map(label => `${label.label}: ${label.score}%`).join('\n');
-        Alert.alert(
-          'Análisis con IA',
-          `Etiquetas detectadas:\n\n${labelsText}`,
-          [{ text: 'OK' }]
-        );
-      } catch (error) {
-        console.error('Error analizando imagen:', error);
-        Alert.alert('Error', 'No se pudo analizar la imagen');
-      }
-    }
   };
 
   const handleLocationSelect = async (coordinates) => {
@@ -554,15 +527,6 @@ export default function CreateLostReportScreen() {
                 </Button>
               </View>
 
-              <Button 
-                mode="contained" 
-                onPress={handleAnalyze}
-                icon="robot"
-                style={styles.aiButton}
-              >
-                Analizar Foto con IA 🐶
-              </Button>
-
               {(existingPhotos.length > 0 || photos.length > 0) && (
                 <View style={styles.photosContainer}>
                   {existingPhotos.map((photo, index) => (
@@ -764,11 +728,6 @@ const styles = StyleSheet.create({
   },
   photoButton: {
     flex: 1,
-  },
-  aiButton: {
-    marginTop: 12,
-    marginBottom: 16,
-    backgroundColor: '#4CAF50',
   },
   photosContainer: {
     flexDirection: 'row',

@@ -64,13 +64,16 @@ export default {
       // Variables de entorno para la aplicación
       appName: process.env.EXPO_PUBLIC_APP_NAME || "PetAlert",
       appVersion: process.env.EXPO_PUBLIC_APP_VERSION || "1.0.0",
+      backendUrl:
+        process.env.EXPO_PUBLIC_BACKEND_URL ||
+        "https://lovers-saver-examining-fcc.trycloudflare.com",
       
       // Variables de entorno para mapas
       googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "",
       
       // EAS
       eas: {
-        projectId: "your-project-id"
+        projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID || "6e590065-3e19-4855-8a01-c7966333cc89"
       }
     }
   }

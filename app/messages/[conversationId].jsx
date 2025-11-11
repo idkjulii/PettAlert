@@ -1,0 +1,640 @@
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Avatar,
+  Button,
+  IconButton,
+  Text,
+  TextInput,
+  useTheme,
+} from 'react-native-paper';
+import {
+  BackHandler,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Image } from 'expo-image';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { messageService } from '../../src/services/supabase';
+import { useAuthStore } from '../../src/stores/authStore';
+import { useConversationMessages } from '../../src/hooks/useConversationMessages';
+
+const formatDateTime = (timestamp) => {
+  if (!timestamp) return '';
+  try {
+    return new Date(timestamp).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+};
+
+const formatReportType = (type) => {
+  if (type === 'lost') {
+    return 'Mascota perdida';
+  }
+  if (type === 'found') {
+    return 'Mascota encontrada';
+  }
+  return 'Reporte';
+};
+
+export default function ConversationScreen() {
+  const theme = useTheme();
+  const { conversationId } = useLocalSearchParams();
+  const router = useRouter();
+  const getUserId = useAuthStore((state) => state.getUserId);
+  const userId = getUserId();
+
+  const [conversation, setConversation] = useState(null);
+  const [loadingConversation, setLoadingConversation] = useState(true);
+  const [conversationError, setConversationError] = useState(null);
+  const [messageInput, setMessageInput] = useState('');
+  const isCurrentUserReporter = conversation?.report_reporter_id === userId;
+
+  const {
+    messages,
+    loading: loadingMessages,
+    loadingMore,
+    sending,
+    error: messagesError,
+    hasMore,
+    loadMore,
+    sendMessage,
+  } = useConversationMessages(conversationId);
+
+  const listRef = useRef(null);
+  const prevMessagesRef = useRef([]);
+
+  const otherUserInitials = useMemo(() => {
+    if (!conversation?.other_user_name) return 'U';
+    return conversation.other_user_name
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join('');
+  }, [conversation]);
+
+  const canSendMessage = useMemo(() => {
+    const trimmed = messageInput.trim();
+    return trimmed.length > 0 && !sending;
+  }, [messageInput, sending]);
+
+  const fetchConversation = useCallback(async () => {
+    if (!conversationId || !userId) {
+      setLoadingConversation(false);
+      setConversationError('No se encontró la conversación.');
+      return;
+    }
+
+    setLoadingConversation(true);
+    setConversationError(null);
+
+    try {
+      const { data, error } = await messageService.getConversationById(conversationId, userId);
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data) {
+        throw new Error('No se encontró la conversación.');
+      }
+
+      setConversation(data);
+    } catch (err) {
+      console.error('Error cargando conversación:', err);
+      setConversationError(err?.message || 'No se pudo cargar la conversación.');
+    } finally {
+      setLoadingConversation(false);
+    }
+  }, [conversationId, userId]);
+
+  useEffect(() => {
+    fetchConversation();
+  }, [fetchConversation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) {
+        router.replace('/(auth)/login');
+        return undefined;
+      }
+
+      const onBackPress = () => {
+        router.replace('/messages');
+        return true;
+      };
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+      return () => {
+        subscription.remove();
+      };
+    }, [router, userId])
+  );
+
+  useEffect(() => {
+    const previous = prevMessagesRef.current;
+    if (messages.length === 0) {
+      prevMessagesRef.current = messages;
+      return;
+    }
+
+    const prevLastId = previous[previous.length - 1]?.id;
+    const lastId = messages[messages.length - 1]?.id;
+
+    if (lastId && lastId !== prevLastId && messages.length >= previous.length) {
+      listRef.current?.scrollToEnd({ animated: true });
+    }
+
+    prevMessagesRef.current = messages;
+  }, [messages]);
+
+  const handleOpenReport = useCallback(() => {
+    if (!conversation?.report_id) return;
+    router.push({
+      pathname: '/report/[id]',
+      params: { id: conversation.report_id, conversationRedirect: conversationId },
+    });
+  }, [conversation?.report_id, conversationId, router]);
+
+  const handleSend = useCallback(async () => {
+    const trimmed = messageInput.trim();
+    if (!trimmed) return;
+
+    const { success } = await sendMessage(trimmed);
+    if (success) {
+      setMessageInput('');
+    }
+  }, [messageInput, sendMessage]);
+
+  const renderMessage = ({ item }) => {
+    const isOwnMessage = item.sender_id === userId;
+    const isReporter = conversation?.report_reporter_id === userId;
+    const isResponderMessage =
+      conversation?.report_reporter_id && item.sender_id
+        ? item.sender_id !== conversation.report_reporter_id
+        : false;
+    const showResponderNotice = isReporter && isResponderMessage;
+    const bubbleStyles = [
+      styles.messageBubble,
+      isOwnMessage ? styles.messageBubbleOwn : styles.messageBubbleOther,
+    ];
+    const messageTextStyle = [
+      styles.messageText,
+      isOwnMessage ? styles.messageTextOwn : styles.messageTextOther,
+    ];
+    const messageTimeStyle = [
+      styles.messageTime,
+      isOwnMessage ? styles.messageTimeOwn : styles.messageTimeOther,
+    ];
+
+    return (
+      <View
+        style={[
+          styles.messageRow,
+          isOwnMessage ? styles.messageRowOwn : styles.messageRowOther,
+        ]}
+      >
+        <View style={bubbleStyles}>
+          {showResponderNotice ? (
+            <View style={styles.responderTag}>
+              <View style={styles.responderTagHeader}>
+                <Text style={styles.responderTagLabel}>Respondiendo a tu reporte</Text>
+                <TouchableOpacity onPress={handleOpenReport}>
+                  <Text style={styles.responderTagLink}>Ver reporte</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.responderTagTitle} numberOfLines={1}>
+                {(conversation?.report_pet_name || 'Mascota').trim() || 'Mascota'}
+              </Text>
+            </View>
+          ) : null}
+          {item.content ? <Text style={messageTextStyle}>{item.content}</Text> : null}
+          {item.image_url ? (
+            <Image
+              source={{ uri: item.image_url }}
+              style={styles.messageImage}
+              contentFit="cover"
+            />
+          ) : null}
+          <Text style={messageTimeStyle}>{formatDateTime(item.created_at)}</Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderHeader = () => (
+    <View style={styles.headerExtras}>
+      {hasMore ? (
+        <View style={styles.loadMoreContainer}>
+          <Button
+            mode="text"
+            onPress={loadMore}
+            disabled={loadingMore}
+            icon={loadingMore ? 'progress-clock' : 'history'}
+          >
+            {loadingMore ? 'Cargando mensajes...' : 'Cargar mensajes anteriores'}
+          </Button>
+        </View>
+      ) : null}
+
+      {conversation ? (
+        <TouchableOpacity style={styles.replyPreview} onPress={handleOpenReport}>
+          <View style={styles.replySidebar} />
+          <View style={styles.replyContent}>
+            <View style={styles.replyHeaderRow}>
+              <Text style={styles.replyLabel}>Reporte vinculado</Text>
+              <Text style={styles.replyLink}>Ver reporte</Text>
+            </View>
+            <Text style={styles.replyTitle}>
+              {conversation.report_pet_name || 'Mascota'} ·{' '}
+              {formatReportType(conversation.report_type)}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+
+  if (loadingConversation) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.centerText}>Cargando conversación...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (conversationError) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.centerContent}>
+          <Text style={styles.errorTitle}>No pudimos abrir el chat</Text>
+          <Text style={styles.centerText}>{conversationError}</Text>
+          <Button mode="contained" style={styles.retryButton} onPress={fetchConversation}>
+            Reintentar
+          </Button>
+          <Button onPress={() => router.replace('/messages')}>Volver</Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <View style={styles.header}>
+          <IconButton icon="arrow-left" onPress={() => router.replace('/messages')} />
+          <View style={styles.headerInfo}>
+            {conversation?.other_user_avatar ? (
+              <Avatar.Image
+                size={44}
+                source={{ uri: conversation.other_user_avatar }}
+                style={styles.headerAvatar}
+              />
+            ) : (
+              <Avatar.Text
+                size={44}
+                label={otherUserInitials}
+                style={styles.headerAvatar}
+              />
+            )}
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>
+                {conversation?.other_user_name || 'Usuario'}
+              </Text>
+              <Text style={styles.headerSubtitle}>
+                {formatReportType(conversation?.report_type)} ·{' '}
+                {(conversation?.report_pet_name || '').trim() || 'Mascota'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.headerPlaceholder} />
+        </View>
+
+        <View style={styles.separator} />
+
+        {messagesError ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{messagesError}</Text>
+            <Button compact mode="text" onPress={loadMore}>
+              Reintentar
+            </Button>
+          </View>
+        ) : null}
+
+        <FlatList
+          ref={listRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.messagesContainer}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={
+            loadingMessages ? (
+              <View style={styles.messagesEmpty}>
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+                <Text style={styles.emptyText}>Cargando mensajes...</Text>
+              </View>
+            ) : (
+              <View style={styles.messagesEmpty}>
+                <Text style={styles.emptyText}>
+                  Aún no hay mensajes. ¡Envía el primero para coordinar!
+                </Text>
+              </View>
+            )
+          }
+        />
+
+        <View style={styles.composerContainer}>
+          <TextInput
+            mode="outlined"
+            placeholder="Escribe tu mensaje"
+            value={messageInput}
+            onChangeText={setMessageInput}
+            multiline
+            style={styles.textInput}
+            right={
+              <TextInput.Icon
+                icon="send"
+                disabled={!canSendMessage}
+                onPress={handleSend}
+                forceTextInputFocus={false}
+              />
+            }
+          />
+          <Button
+            mode="contained"
+            onPress={handleSend}
+            disabled={!canSendMessage}
+            loading={sending}
+            style={styles.sendButton}
+          >
+            Enviar
+          </Button>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#F4F6FB',
+  },
+  flex: {
+    flex: 1,
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  centerText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: '#555',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#D32F2F',
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    backgroundColor: '#FFFFFF',
+  },
+  headerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerAvatar: {
+    marginRight: 12,
+    backgroundColor: '#E0E7FF',
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F1F1F',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  headerPlaceholder: {
+    width: 44,
+    height: 44,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E5E7EB',
+  },
+  errorBanner: {
+    backgroundColor: '#FDECEC',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorBannerText: {
+    color: '#B00020',
+    fontSize: 13,
+    flex: 1,
+    marginRight: 12,
+  },
+  headerExtras: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  messagesContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  messagesEmpty: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  loadMoreContainer: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  replyPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  replySidebar: {
+    width: 4,
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: '#7C3AED',
+    marginRight: 10,
+  },
+  replyContent: {
+    flex: 1,
+  },
+  replyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  replyLabel: {
+    fontSize: 12,
+    color: '#5B21B6',
+    fontWeight: '600',
+  },
+  replyTitle: {
+    fontSize: 14,
+    color: '#1F2937',
+    fontWeight: '500',
+  },
+  replyLink: {
+    fontSize: 12,
+    color: '#5B21B6',
+    fontWeight: '600',
+  },
+  messageRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  messageRowOwn: {
+    justifyContent: 'flex-end',
+  },
+  messageRowOther: {
+    justifyContent: 'flex-start',
+  },
+  messageBubble: {
+    maxWidth: '80%',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+  },
+  messageBubbleOwn: {
+    backgroundColor: '#007AFF',
+    borderBottomRightRadius: 4,
+  },
+  messageBubbleOther: {
+    backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 4,
+  },
+  messageText: {
+    fontSize: 15,
+  },
+  messageTextOwn: {
+    color: '#FFFFFF',
+  },
+  messageTextOther: {
+    color: '#111',
+  },
+  responderTag: {
+    backgroundColor: '#F4F0FF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  responderTagHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  responderTagLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#5B21B6',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  responderTagLink: {
+    fontSize: 11,
+    color: '#5B21B6',
+    fontWeight: '600',
+  },
+  responderTagTitle: {
+    fontSize: 12,
+    color: '#4C1D95',
+    fontWeight: '500',
+  },
+  messageTime: {
+    fontSize: 11,
+    textAlign: 'right',
+    marginTop: 6,
+  },
+  messageTimeOwn: {
+    color: 'rgba(255,255,255,0.7)',
+  },
+  messageTimeOther: {
+    color: '#6B7280',
+  },
+  messageImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  composerContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopColor: '#E5E7EB',
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  textInput: {
+    maxHeight: 120,
+    backgroundColor: '#FFFFFF',
+  },
+  sendButton: {
+    marginTop: 12,
+  },
+});
+
+

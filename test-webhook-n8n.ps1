@@ -93,3 +93,5 @@ Write-Host "   SELECT id, labels, colors FROM reports WHERE id = '$reportId';" -
 
 
 
+
+

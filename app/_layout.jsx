@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import SplashScreen from '../components/SplashScreen';
 import { useAuthStore } from '../src/stores/authStore';
+import { usePushNotifications } from '../src/hooks/usePushNotifications';
 
 export default function RootLayout() {
   const router = useRouter();
@@ -10,6 +11,7 @@ export default function RootLayout() {
   const { user, session, initialize, initialized } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
+  const { error: pushError } = usePushNotifications();
 
   const handleSplashFinish = () => {
     setShowSplash(false);
@@ -66,6 +68,12 @@ export default function RootLayout() {
       }
     }
   }, [user, session, initialized, segments, router, isLoading]);
+
+  useEffect(() => {
+    if (pushError) {
+      console.warn('Error al registrar notificaciones push:', pushError);
+    }
+  }, [pushError]);
 
   // Mostrar splash screen primero
   if (showSplash) {

@@ -9,11 +9,13 @@ import {
   Button,
   Chip,
   Divider,
+  HelperText,
   IconButton,
   Text,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { reportService } from "../../src/services/supabase";
+import { messageService, reportService } from "../../src/services/supabase";
+import { useAuthStore } from "../../src/stores/authStore";
 
 const getSpeciesEmoji = (species) => {
   switch (species) {
@@ -50,6 +52,12 @@ export default function ReportDetailScreen() {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [contactLoading, setContactLoading] = useState(false);
+  const [contactError, setContactError] = useState(null);
+  const getUserId = useAuthStore((state) => state.getUserId);
+  const isAuthenticatedFn = useAuthStore((state) => state.isAuthenticated);
+  const userId = getUserId();
+  const isAuthenticated = isAuthenticatedFn();
 
   useEffect(() => {
     const loadReport = async () => {
@@ -106,15 +114,84 @@ export default function ReportDetailScreen() {
   }, [report]);
 
   useEffect(() => {
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      router.replace("/(tabs)/reports");
+    const previousRoute = params?.conversationRedirect
+      ? {
+          pathname: '/messages/[conversationId]',
+          params: { conversationId: params.conversationRedirect },
+        }
+      : { pathname: '/(tabs)/reports' };
+
+    const onBack = () => {
+      router.replace(previousRoute);
       return true;
-    });
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
     return () => sub.remove();
-  }, [router]);
+  }, [params?.conversationRedirect, router]);
 
   const handleBack = () => {
-    router.replace("/(tabs)/reports");
+    if (params?.conversationRedirect) {
+      router.replace({
+        pathname: '/messages/[conversationId]',
+        params: { conversationId: params.conversationRedirect },
+      });
+    } else {
+      router.replace('/(tabs)/reports');
+    }
+  };
+
+  useEffect(() => {
+    setContactError(null);
+    setContactLoading(false);
+  }, [report]);
+
+  const isOwnReport = useMemo(() => {
+    if (!report || !userId) return false;
+    return report.reporter_id === userId;
+  }, [report, userId]);
+
+  const handleContact = async () => {
+    if (!report || !report.reporter_id) {
+      setContactError("El reporte no tiene un autor válido.");
+      return;
+    }
+
+    if (!isAuthenticated) {
+      router.push("/(auth)/login");
+      return;
+    }
+
+    if (isOwnReport) {
+      setContactError("Este es tu propio reporte.");
+      return;
+    }
+
+    try {
+      setContactLoading(true);
+      setContactError(null);
+
+      const { data, error: conversationError } = await messageService.getOrCreateConversation(
+        report.id,
+        userId,
+        report.reporter_id
+      );
+
+      if (conversationError) {
+        throw conversationError;
+      }
+
+      if (!data?.id) {
+        throw new Error("No se pudo crear la conversación.");
+      }
+
+      router.push(`/messages/${data.id}`);
+    } catch (contactErr) {
+      console.error("Error iniciando conversación:", contactErr);
+      setContactError(contactErr?.message || "No se pudo iniciar el chat. Intenta nuevamente.");
+    } finally {
+      setContactLoading(false);
+    }
   };
 
   return (
@@ -212,14 +289,27 @@ export default function ReportDetailScreen() {
             </View>
           </View>
 
-          <Button
-            mode="contained"
-            disabled
-            style={styles.contactButton}
-            icon="message"
-          >
-            Contactar (muy pronto)
-          </Button>
+          <View style={styles.contactSection}>
+            <Button
+              mode="contained"
+              style={styles.contactButton}
+              icon="message"
+              onPress={handleContact}
+              loading={contactLoading}
+              disabled={contactLoading || isOwnReport || !report?.reporter_id}
+            >
+              {isOwnReport
+                ? "Este es tu reporte"
+                : isAuthenticated
+                ? "Contactar"
+                : "Inicia sesión para contactar"}
+            </Button>
+            {contactError ? (
+              <HelperText type="error" visible style={styles.contactError}>
+                {contactError}
+              </HelperText>
+            ) : null}
+          </View>
         </ScrollView>
       )}
     </SafeAreaView>
@@ -361,6 +451,12 @@ const styles = StyleSheet.create({
   },
   contactButton: {
     marginTop: 4,
+  },
+  contactSection: {
+    marginTop: 8,
+  },
+  contactError: {
+    marginTop: 8,
   },
 });
 
