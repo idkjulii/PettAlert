@@ -7,7 +7,7 @@ import { NETWORK_CONFIG } from './network';
 const TUNNEL_URL =
   process.env.EXPO_PUBLIC_TUNNEL_URL ||
   process.env.EXPO_PUBLIC_BACKEND_URL ||
-  'https://lovers-saver-examining-fcc.trycloudflare.com';
+  'https://stock-presents-hip-individual.trycloudflare.com';
 
 // URL base del backend - prioridad: variable de entorno > ngrok > red local > localhost
 // Si ngrok está funcionando, se usará automáticamente

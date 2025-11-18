@@ -66,7 +66,7 @@ export default {
       appVersion: process.env.EXPO_PUBLIC_APP_VERSION || "1.0.0",
       backendUrl:
         process.env.EXPO_PUBLIC_BACKEND_URL ||
-        "https://lovers-saver-examining-fcc.trycloudflare.com",
+        "https://stock-presents-hip-individual.trycloudflare.com",
       
       // Variables de entorno para mapas
       googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "",
