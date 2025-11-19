@@ -7,7 +7,6 @@ import { getCurrentLocation, requestLocationPermission } from './location.js';
 import { searchImage } from './searchImage.js';
 import { storageService } from './storage.js';
 import { supabase } from './supabase.js';
-import { visionService } from './vision.js';
 
 export {
     aiSearchService,
@@ -15,8 +14,7 @@ export {
     requestLocationPermission,
     searchImage,
     storageService,
-    supabase,
-    visionService
+    supabase
 };
 
 

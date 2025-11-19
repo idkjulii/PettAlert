@@ -1,92 +1,10 @@
 
-import { buildUrl, getNgrokHeaders } from '../config/backend.js';
+import { buildUrl, getTunnelHeaders } from '../config/backend.js';
 
 /**
  * Servicio de búsqueda con IA para encontrar mascotas
  */
 const aiSearchService = {
-  /**
-   * Analiza una imagen con Google Vision API
-   * @param {string} imageUri - URI de la imagen
-   * @returns {Promise<Object>} Resultado del análisis
-   */
-  analyzeImage: async (imageUri) => {
-    try {
-      const formData = new FormData();
-      formData.append("file", {
-        uri: imageUri,
-        type: "image/jpeg",
-        name: "search.jpg",
-      });
-
-      const response = await fetch(buildUrl('ANALYZE_IMAGE'), {
-        method: "POST",
-        body: formData,
-        headers: getNgrokHeaders(),
-        // No especificar Content-Type para FormData en React Native
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return {
-        success: true,
-        data: data,
-        error: null
-      };
-    } catch (error) {
-      console.error('Error analizando imagen:', error);
-      return {
-        success: false,
-        data: null,
-        error: error.message
-      };
-    }
-  },
-
-  /**
-   * Genera una descripción automática de la imagen
-   * @param {string} imageUri - URI de la imagen
-   * @returns {Promise<Object>} Descripción generada
-   */
-  generateCaption: async (imageUri) => {
-    try {
-      const formData = new FormData();
-      formData.append("file", {
-        uri: imageUri,
-        type: "image/jpeg",
-        name: "caption.jpg",
-      });
-
-      const response = await fetch(buildUrl('CAPTION'), {
-        method: "POST",
-        body: formData,
-        headers: getNgrokHeaders(),
-        // No especificar Content-Type para FormData en React Native
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return {
-        success: true,
-        data: data,
-        error: null
-      };
-    } catch (error) {
-      console.error('Error generando caption:', error);
-      return {
-        success: false,
-        data: null,
-        error: error.message
-      };
-    }
-  },
-
   /**
    * Busca coincidencias usando IA
    * @param {Object} searchParams - Parámetros de búsqueda
@@ -103,15 +21,8 @@ const aiSearchService = {
         analysisData = null
       } = searchParams;
 
-      // Si no tenemos análisis previo, analizamos la imagen
-      let analysis = analysisData;
-      if (!analysis) {
-        const analysisResult = await aiSearchService.analyzeImage(imageUri);
-        if (!analysisResult.success) {
-          throw new Error(analysisResult.error);
-        }
-        analysis = analysisResult.data;
-      }
+      // Los embeddings se generan automáticamente en el backend
+      const analysis = analysisData || {};
 
       // Preparar datos para la búsqueda
       const searchData = new FormData();
@@ -125,15 +36,31 @@ const aiSearchService = {
       searchData.append("radius_km", radiusKm.toString());
       searchData.append("search_type", searchType);
 
-      const response = await fetch(buildUrl('AI_SEARCH'), {
-        method: "POST",
-        body: searchData,
-        headers: getNgrokHeaders(),
-        // No especificar Content-Type para FormData en React Native
-      });
+      // Timeout de 90 segundos para búsquedas con IA
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
+      
+      let response;
+      try {
+        response = await fetch(buildUrl('AI_SEARCH'), {
+          method: "POST",
+          body: searchData,
+          headers: getTunnelHeaders(),
+          signal: controller.signal
+          // No especificar Content-Type para FormData en React Native
+        });
+        clearTimeout(timeoutId);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error('La búsqueda tardó demasiado. Por favor intenta de nuevo.');
+        }
+        throw error;
+      }
 
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+        const errorText = await response.text().catch(() => response.statusText);
+        throw new Error(`Error ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
@@ -206,7 +133,7 @@ const aiSearchService = {
     try {
       const response = await fetch(buildUrl('SAVE_LABELS', { report_id: reportId }), {
         method: "POST",
-        headers: getNgrokHeaders({
+        headers: getTunnelHeaders({
           'Content-Type': 'application/json',
         }),
         body: JSON.stringify(labelsData),
@@ -240,7 +167,7 @@ const aiSearchService = {
     try {
       const response = await fetch(buildUrl('HEALTH'), {
         method: "GET",
-        headers: getNgrokHeaders({
+        headers: getTunnelHeaders({
           'Content-Type': 'application/json',
         }),
       });

@@ -8,12 +8,8 @@ export async function postImage(endpoint, { uri, name = "photo.jpg", type = "ima
   const form = new FormData();
   form.append("file", { uri, name, type });
   
-  // Detectar si es ngrok y agregar header
-  const isNgrok = API_URL.includes('ngrok-free.dev') || API_URL.includes('ngrok.io');
+  // Cloudflare Tunnel no requiere headers especiales
   const headers = {};
-  if (isNgrok) {
-    headers['ngrok-skip-browser-warning'] = 'true';
-  }
   // Don't set Content-Type manually; fetch will add the multipart boundary.
   
   const res = await fetch(`${API_URL}${endpoint}`, { 

@@ -1,16 +1,21 @@
 from fastapi import APIRouter, HTTPException, File, UploadFile, Query
 from typing import List, Dict, Any, Optional
-import os, math, traceback
-from google.cloud import vision
-from supabase import create_client, Client
+import os, math, traceback, sys
+from pathlib import Path
+from supabase import Client
+
+# Agregar la carpeta parent al path para poder importar utils
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils.supabase_client import get_supabase_client
 
 router = APIRouter(prefix="/ai-search", tags=["ai-search"])
 
 def _sb() -> Client:
-    url = os.getenv("SUPABASE_URL"); key = os.getenv("SUPABASE_SERVICE_KEY")
-    if not url or not key:
-        raise HTTPException(500, "Faltan SUPABASE_URL / SUPABASE_SERVICE_KEY")
-    return create_client(url, key)
+    """Crea un cliente de Supabase con configuración optimizada de timeouts"""
+    try:
+        return get_supabase_client()
+    except Exception as e:
+        raise HTTPException(500, f"Error conectando a Supabase: {str(e)}")
 
 def _coords(loc: Optional[dict]) -> Optional[tuple]:
     """Extrae coordenadas de un objeto de ubicación GeoJSON."""

@@ -1,29 +1,20 @@
-# PetAlert Vision Backend
+# PetAlert Backend
 
-Backend en FastAPI que analiza imágenes con Google Cloud Vision API.
+Backend en FastAPI para la aplicación de búsqueda de mascotas.
 
 ## 🚀 Ejecución
 
-1. Coloca tu clave descargada de Google Cloud como:
-
-backend/google-vision-key.json
-
-2. Instala dependencias:
+1. Instala dependencias:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Ejecuta el servidor:
+2. Ejecuta el servidor:
 ```bash
-uvicorn main:app --reload
+uvicorn main:app --reload --port 8003
 ```
 
-4. Envía una imagen de prueba:
-```bash
-curl -X POST -F "file=@nina.jpg" http://127.0.0.1:8000/analyze_image
-```
-
-## Embeddings CLIP + pgvector
+## Embeddings MegaDescriptor + pgvector
 
 **Instalación**
 ```bash

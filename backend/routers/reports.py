@@ -1,15 +1,16 @@
 from fastapi import APIRouter, HTTPException, Query, Body, BackgroundTasks
 from typing import List, Dict, Any, Optional
-import os, math
-from supabase import create_client, Client
+import os, math, sys
+from pathlib import Path
+from supabase import Client
 import httpx
 import asyncio
 from services.embeddings import image_bytes_to_vec
-from .n8n_integration import send_to_n8n_webhook
 
-AUTO_SEND_REPORTS_TO_N8N = (
-    os.getenv("AUTO_SEND_REPORTS_TO_N8N", "true").lower() in ("1", "true", "yes")
-)
+# Agregar la carpeta parent al path para poder importar utils
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils.supabase_client import get_supabase_client
+
 GENERATE_EMBEDDINGS_LOCALLY = (
     os.getenv("GENERATE_EMBEDDINGS_LOCALLY", "false").lower() in ("1", "true", "yes")
 )
@@ -17,10 +18,11 @@ GENERATE_EMBEDDINGS_LOCALLY = (
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 def _sb() -> Client:
-    url = os.getenv("SUPABASE_URL"); key = os.getenv("SUPABASE_SERVICE_KEY")
-    if not url or not key:
-        raise HTTPException(500, "Faltan SUPABASE_URL / SUPABASE_SERVICE_KEY")
-    return create_client(url, key)
+    """Crea un cliente de Supabase con configuración optimizada de timeouts"""
+    try:
+        return get_supabase_client()
+    except Exception as e:
+        raise HTTPException(500, f"Error conectando a Supabase: {str(e)}")
 
 def _extract_coords(location_data) -> Optional[tuple]:
     """Extrae coordenadas de diferentes formatos de location"""
@@ -60,33 +62,210 @@ async def generate_and_save_embedding(report_id: str, photo_url: str):
     Genera y guarda el embedding de una imagen para un reporte.
     Se ejecuta en segundo plano para no bloquear la respuesta.
     """
-    try:
-        print(f"🔄 [embedding] Generando embedding para reporte {report_id} desde {photo_url}")
-        
-        # Descargar la imagen
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(photo_url)
-            response.raise_for_status()
-            image_bytes = response.content
-        
-        # Generar embedding
-        vec = image_bytes_to_vec(image_bytes)
-        vec_list = vec.tolist()
-        
-        # Guardar en Supabase usando RPC
-        sb = _sb()
-        result = sb.rpc('update_report_embedding', {
-            'report_id': report_id,
-            'embedding_vector': vec_list
-        }).execute()
-        
-        if result.data:
-            print(f"✅ [embedding] Embedding guardado exitosamente para reporte {report_id}")
-        else:
-            print(f"⚠️ [embedding] No se pudo guardar embedding para reporte {report_id}")
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            if attempt > 0:
+                print(f"🔄 [embedding] Reintento {attempt + 1}/{max_retries} para reporte {report_id}")
+            else:
+                print(f"🔄 [embedding] Generando embedding para reporte {report_id} desde {photo_url}")
             
+            # Descargar la imagen con timeouts aumentados para Windows
+            timeout = httpx.Timeout(60.0, connect=60.0)  # 60s total y para conectar
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                response = await client.get(photo_url)
+                response.raise_for_status()
+                image_bytes = response.content
+            
+            print(f"🔍 Embedding generado: {len(image_bytes)} bytes de imagen descargados")
+            
+            # Generar embedding
+            vec = image_bytes_to_vec(image_bytes)
+            vec_list = vec.tolist()
+            
+            print(f"🔍 Embedding generado: {len(vec_list)} dimensiones")
+            
+            # Guardar en Supabase directamente (pgvector acepta arrays de Python)
+            sb = _sb()
+            result = sb.table('reports').update({
+                'embedding': vec_list
+            }).eq('id', report_id).execute()
+            
+            if result.data:
+                print(f"✅ [embedding] Embedding guardado exitosamente para reporte {report_id}")
+                
+                # Buscar matches automáticamente después de generar el embedding
+                try:
+                    await find_and_save_matches(report_id)
+                except Exception as match_error:
+                    print(f"⚠️ [matches] Error buscando matches (no crítico): {str(match_error)}")
+                
+                return  # Éxito, salir de la función
+            else:
+                print(f"⚠️ [embedding] No se pudo guardar embedding para reporte {report_id}")
+                
+        except httpx.TimeoutException as e:
+            print(f"⏱️ [embedding] Timeout al procesar imagen (intento {attempt + 1}/{max_retries})")
+            if attempt == max_retries - 1:
+                print(f"❌ [embedding] Error después de {max_retries} intentos: Timeout")
+            else:
+                await asyncio.sleep(2 ** attempt)  # Backoff exponencial: 1s, 2s, 4s
+                
+        except Exception as e:
+            print(f"❌ [embedding] Error generando embedding para reporte {report_id}: {str(e)}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)  # Backoff exponencial
+            # No lanzar excepción, solo loguear el error
+
+
+async def find_and_save_matches(report_id: str, threshold: float = 0.1, max_matches: int = 10):
+    """
+    Busca matches similares para un reporte y los guarda automáticamente.
+    """
+    try:
+        print(f"🔍 [matches] Buscando coincidencias para reporte {report_id}...")
+        
+        sb = _sb()
+        
+        # Obtener el reporte con su embedding
+        report_result = sb.table("reports")\
+            .select("id, embedding, type, species")\
+            .eq("id", report_id)\
+            .execute()
+        
+        if not report_result.data:
+            print(f"⚠️ [matches] Reporte {report_id} no encontrado")
+            return
+        
+        report = report_result.data[0]
+        report_embedding = report.get("embedding")
+        report_type = report.get("type")
+        
+        if not report_embedding:
+            print(f"⚠️ [matches] Reporte {report_id} no tiene embedding")
+            return
+        
+        # Postgrest devuelve vectores como strings JSON, parsearlos
+        if isinstance(report_embedding, str):
+            import json
+            try:
+                report_embedding = json.loads(report_embedding)
+            except Exception as e:
+                print(f"⚠️ [matches] Error parseando embedding: {e}")
+                return
+        
+        # Determinar tipo opuesto para buscar matches
+        opposite_type = "found" if report_type == "lost" else "lost"
+        
+        # Buscar reportes del tipo opuesto con embeddings
+        candidates = sb.table("reports")\
+            .select("id, embedding, species")\
+            .eq("type", opposite_type)\
+            .eq("status", "active")\
+            .not_.is_("embedding", "null")\
+            .execute()
+        
+        if not candidates.data:
+            print(f"ℹ️ [matches] No hay reportes de tipo '{opposite_type}' para comparar")
+            return
+        
+        # Calcular similitud con todos los candidatos
+        import numpy as np
+        base_vec = np.array(report_embedding, dtype=np.float32)
+        
+        matches_found = []
+        for candidate in candidates.data:
+            try:
+                candidate_embedding = candidate.get("embedding")
+                if not candidate_embedding:
+                    continue
+                
+                # Parsear si es string JSON
+                if isinstance(candidate_embedding, str):
+                    try:
+                        candidate_embedding = json.loads(candidate_embedding)
+                    except:
+                        continue
+                
+                candidate_vec = np.array(candidate_embedding, dtype=np.float32)
+                
+                # Similitud coseno (embeddings ya están normalizados)
+                similarity = float(np.dot(base_vec, candidate_vec))
+                
+                if similarity >= threshold:
+                    matches_found.append({
+                        "candidate_id": candidate["id"],
+                        "similarity": similarity,
+                        "species": candidate.get("species")
+                    })
+            except Exception as e:
+                print(f"⚠️ [matches] Error procesando candidato: {e}")
+                continue
+        
+        # Ordenar por similitud descendente y tomar los mejores
+        matches_found.sort(key=lambda x: x["similarity"], reverse=True)
+        matches_found = matches_found[:max_matches]
+        
+        if not matches_found:
+            print(f"ℹ️ [matches] No se encontraron coincidencias con similitud >= {threshold}")
+            return
+        
+        # Guardar matches en la base de datos
+        matches_saved = 0
+        for match in matches_found:
+            try:
+                match_data = {
+                    "similarity_score": round(match["similarity"], 4),
+                    "matched_by": "ai_visual",
+                    "status": "pending"
+                }
+                
+                # Configurar IDs según el tipo de reporte
+                if report_type == "lost":
+                    match_data["lost_report_id"] = report_id
+                    match_data["found_report_id"] = match["candidate_id"]
+                else:
+                    match_data["lost_report_id"] = match["candidate_id"]
+                    match_data["found_report_id"] = report_id
+                
+                # Verificar si ya existe el match
+                if report_type == "lost":
+                    existing = sb.table("matches")\
+                        .select("id, similarity_score")\
+                        .eq("lost_report_id", report_id)\
+                        .eq("found_report_id", match["candidate_id"])\
+                        .execute()
+                else:
+                    existing = sb.table("matches")\
+                        .select("id, similarity_score")\
+                        .eq("lost_report_id", match["candidate_id"])\
+                        .eq("found_report_id", report_id)\
+                        .execute()
+                
+                if existing.data:
+                    # Actualizar si la nueva similitud es mejor
+                    existing_match = existing.data[0]
+                    if match["similarity"] > (existing_match.get("similarity_score") or 0):
+                        sb.table("matches")\
+                            .update(match_data)\
+                            .eq("id", existing_match["id"])\
+                            .execute()
+                        matches_saved += 1
+                        print(f"  ✅ [matches] Match actualizado: {match['candidate_id']} (similitud: {match['similarity']:.3f})")
+                else:
+                    # Crear nuevo match
+                    sb.table("matches").insert(match_data).execute()
+                    matches_saved += 1
+                    print(f"  ✅ [matches] Match creado: {match['candidate_id']} (similitud: {match['similarity']:.3f})")
+                    
+            except Exception as e:
+                print(f"⚠️ [matches] Error guardando match: {e}")
+                continue
+        
+        print(f"✅ [matches] {matches_saved} coincidencias guardadas para reporte {report_id}")
+        
     except Exception as e:
-        print(f"❌ [embedding] Error generando embedding para reporte {report_id}: {str(e)}")
+        print(f"❌ [matches] Error en búsqueda de matches: {str(e)}")
         # No lanzar excepción, solo loguear el error
 
 @router.get("/")
@@ -183,33 +362,6 @@ async def create_report(
                     # No fallar la creación del reporte si falla el embedding
         elif photos and isinstance(photos, list) and len(photos) > 0:
             print("ℹ️ [embedding] Generación local desactivada. La IA externa se encargará del embedding.")
-        
-        # Enviar automáticamente a n8n para procesamiento adicional
-        if AUTO_SEND_REPORTS_TO_N8N and photos and isinstance(photos, list):
-            total_images = len(photos)
-            webhook_results = []
-            for idx, photo_url in enumerate(photos):
-                report_payload = {
-                    "report_id": report_id,
-                    "image_url": photo_url,
-                    "image_index": idx,
-                    "total_images": total_images,
-                    "species": created_report.get("species"),
-                    "type": created_report.get("type"),
-                    "status": created_report.get("status"),
-                    "created_at": created_report.get("created_at"),
-                    "has_labels": created_report.get("labels") is not None,
-                }
-                try:
-                    webhook_response = await send_to_n8n_webhook(report_payload)
-                    webhook_results.append(webhook_response)
-                    if webhook_response.get("success"):
-                        print(f"✅ [n8n] Reporte {report_id} imagen {idx+1}/{total_images} enviada a n8n")
-                    else:
-                        print(f"⚠️ [n8n] Error enviando imagen {idx+1}/{total_images} del reporte {report_id}: {webhook_response.get('error')}")
-                except Exception as e:
-                    print(f"⚠️ [n8n] Error inesperado enviando reporte {report_id} a n8n: {str(e)}")
-            created_report["n8n_results"] = webhook_results
         
         return {"report": created_report, "message": "Reporte creado exitosamente"}
     except Exception as e:

@@ -1,8 +1,6 @@
 node_modules/
 .expo/
 .vscode/
-.env
-.env.*
 backend/.venv/
 __pycache__/
 dist/

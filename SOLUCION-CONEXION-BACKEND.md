@@ -2,30 +2,25 @@
 
 ## Problema Identificado
 
-La app móvil está intentando conectarse a `https://neighbourly-minaciously-audry.ngrok-free.dev` pero recibe error 404 (HTML en lugar de JSON).
+La app móvil necesita conectarse al backend pero la configuración de túneles temporales ya no está activa.
 
 ## ✅ Solución Aplicada
 
-He actualizado la configuración para **priorizar la IP local** sobre ngrok.
+He actualizado la configuración para **priorizar la IP local** sobre túneles temporales.
 
 ### Cambio realizado:
 
 **Archivo:** `src/config/backend.js`
 
-**Antes:**
+**Configuración actual:**
 ```javascript
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || NGROK_URL || NETWORK_CONFIG?.BACKEND_URL || 'http://127.0.0.1:8003';
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_TUNNEL_URL || NETWORK_CONFIG?.BACKEND_URL || 'http://127.0.0.1:8003';
 ```
 
-**Ahora:**
-```javascript
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || NETWORK_CONFIG?.BACKEND_URL || NGROK_URL || 'http://127.0.0.1:8003';
-```
-
-Ahora la prioridad es:
+Prioridad actual:
 1. Variable de entorno `EXPO_PUBLIC_BACKEND_URL` (si existe)
-2. **IP local** (`http://192.168.0.204:8003`) ← **Prioridad**
-3. ngrok (fallback)
+2. Variable de entorno `EXPO_PUBLIC_TUNNEL_URL` (túnel Cloudflare temporal)
+3. **IP local** (`http://192.168.0.204:8003`) ← **Opción recomendada**
 4. localhost (último recurso)
 
 ---
@@ -40,7 +35,7 @@ Invoke-WebRequest -Uri "http://192.168.0.204:8003/health" -Method GET
 
 Debería devolver:
 ```json
-{"status":"ok","message":"PetAlert Vision API activa",...}
+{"status":"ok","message":"PetAlert API activa","supabase":"conectado"}
 ```
 
 ### 2. Verificar que el backend esté escuchando en todas las interfaces
@@ -76,15 +71,11 @@ Cuando crees un reporte ahora:
    ↓
 2. Backend guarda en Supabase
    ↓
-3. Backend genera embedding automáticamente
+3. Backend genera embedding automáticamente con MegaDescriptor
    ↓
-4. Backend envía automáticamente al webhook de n8n ✅
+4. Backend busca coincidencias automáticamente
    ↓
-5. n8n procesa la imagen
-   ↓
-6. n8n envía resultados al backend
-   ↓
-7. Backend actualiza el reporte con labels y colores
+5. Backend guarda los matches en la base de datos
 ```
 
 ---

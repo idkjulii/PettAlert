@@ -3,24 +3,17 @@
  */
 import { NETWORK_CONFIG } from './network';
 
-// URL del túnel temporal (Cloudflare quick tunnel en este caso)
-const TUNNEL_URL =
-  process.env.EXPO_PUBLIC_TUNNEL_URL ||
-  process.env.EXPO_PUBLIC_BACKEND_URL ||
-  'https://stock-presents-hip-individual.trycloudflare.com';
-
-// URL base del backend - prioridad: variable de entorno > ngrok > red local > localhost
-// Si ngrok está funcionando, se usará automáticamente
+// URL base del backend - prioridad: variable de entorno > red local > localhost
 const BACKEND_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL ||
-  TUNNEL_URL ||
+  process.env.EXPO_PUBLIC_TUNNEL_URL ||
   NETWORK_CONFIG?.BACKEND_URL ||
   'http://127.0.0.1:8003';
 
 // Log de depuración para ver qué URL se está usando
 console.log('🔧 [BACKEND CONFIG]');
 console.log('   EXPO_PUBLIC_BACKEND_URL:', process.env.EXPO_PUBLIC_BACKEND_URL || '(no definida)');
-console.log('   TUNNEL_URL:', TUNNEL_URL);
+console.log('   EXPO_PUBLIC_TUNNEL_URL:', process.env.EXPO_PUBLIC_TUNNEL_URL || '(no definida)');
 console.log('   NETWORK_CONFIG.BACKEND_URL:', NETWORK_CONFIG?.BACKEND_URL || '(no definida)');
 console.log('   BACKEND_URL final:', BACKEND_URL);
 
@@ -29,8 +22,6 @@ const ENDPOINTS = {
   HEALTH: '/health',
   AI_SEARCH: '/ai-search',
   AI_SEARCH_HEALTH: '/ai-search/health',
-  ANALYZE_IMAGE: '/analyze_image',
-  CAPTION: '/caption',
   AUTO_MATCH: '/reports/auto-match',
   SAVE_LABELS: '/reports/{report_id}/labels',
   REPORTS: '/reports/',
@@ -48,13 +39,7 @@ const ENDPOINTS = {
   RAG_SAVE_EMBEDDING: '/rag/save-embedding/{report_id}',
   RAG_GET_EMBEDDING: '/rag/embedding/{report_id}',
   RAG_HAS_EMBEDDING: '/rag/has-embedding/{report_id}',
-  RAG_STATS: '/rag/stats',
-  // n8n Integration
-  N8N_HEALTH: '/n8n/health',
-  N8N_REPORTS_WITH_IMAGES: '/n8n/reports/with-images',
-  N8N_SEND_TO_WEBHOOK: '/n8n/send-to-webhook',
-  N8N_PROCESS_RESULT: '/n8n/process-result',
-  N8N_BATCH_PROCESS: '/n8n/batch-process'
+  RAG_STATS: '/rag/stats'
 };
 
 /**
@@ -82,25 +67,19 @@ const buildUrl = (endpoint, params = {}) => {
 };
 
 /**
- * Agrega headers de ngrok si es necesario
+ * Agrega headers necesarios para túneles (Cloudflare, etc)
  * @param {Object} headers - Headers existentes (opcional)
- * @returns {Object} Headers con ngrok si es necesario
+ * @returns {Object} Headers con configuración de túnel si es necesario
  */
-const getNgrokHeaders = (headers = {}) => {
-  const isNgrok =
-    BACKEND_URL.includes('ngrok-free.dev') ||
-    BACKEND_URL.includes('ngrok.io') ||
-    BACKEND_URL.includes('trycloudflare.com');
-  if (isNgrok) {
-    return {
-      ...headers,
-      'ngrok-skip-browser-warning': 'true'
-    };
-  }
+const getTunnelHeaders = (headers = {}) => {
+  const isTunnel = BACKEND_URL.includes('trycloudflare.com');
+  
+  // Cloudflare Tunnel no requiere headers especiales
+  // Esta función se mantiene para compatibilidad futura
   return headers;
 };
 
 export {
-  BACKEND_URL, buildUrl, ENDPOINTS, getNgrokHeaders
+  BACKEND_URL, buildUrl, ENDPOINTS, getTunnelHeaders
 };
 

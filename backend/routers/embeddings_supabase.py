@@ -17,7 +17,7 @@ def get_supabase():
 @router.post("/generate")
 async def generate_embedding(file: UploadFile = File(...)):
     """
-    Genera un embedding de 512 dimensiones para una imagen.
+    Genera un embedding de 1536 dimensiones para una imagen usando MegaDescriptor.
     """
     try:
         image_bytes = await file.read()
@@ -29,7 +29,7 @@ async def generate_embedding(file: UploadFile = File(...)):
         return {
             "embedding": vec.tolist(),
             "dimensions": len(vec),
-            "model": "CLIP ViT-B/32",
+            "model": "MegaDescriptor-L-384",
             "file_name": file.filename,
             "file_size": len(image_bytes)
         }
@@ -57,7 +57,7 @@ async def index_report_embedding(report_id: str, file: UploadFile = File(...)):
         if not result.data:
             raise HTTPException(404, "report_id no encontrado")
             
-        return {"status": "ok", "report_id": report_id, "dims": 512}
+        return {"status": "ok", "report_id": report_id, "dims": 1536}
     except Exception as e:
         raise HTTPException(500, f"Error actualizando embedding: {e}")
 
@@ -145,7 +145,7 @@ async def search_image(
                     "lost_report_id": lost_id,
                     "found_report_id": top1["report_id"],
                     "similarity_score": round(top1["score_clip"], 4),
-                    "matched_by": "ai_visual",  # Usa embeddings de imágenes (OpenCLIP)
+                    "matched_by": "ai_visual",  # Usa embeddings de imágenes (MegaDescriptor)
                     "status": "pending"
                 }).execute()
             except Exception as e:

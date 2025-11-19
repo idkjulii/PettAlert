@@ -25,13 +25,12 @@ class ApiService {
       url = buildUrl(endpoint.endpoint, endpoint.params);
     }
     
-    // Detectar si es una URL de ngrok y agregar header para evitar página de bienvenida
-    const isNgrok = url.includes('ngrok-free.dev') || url.includes('ngrok.io');
+    // Detectar si es una URL de túnel (Cloudflare)
+    const isTunnel = url.includes('trycloudflare.com');
     
     // Preparar headers base
     const baseHeaders = {
-      // Header para evitar la página de bienvenida de ngrok free (siempre incluir si es ngrok)
-      ...(isNgrok && { 'ngrok-skip-browser-warning': 'true' }),
+      // Cloudflare Tunnel no requiere headers especiales
     };
     
     // Si no hay headers personalizados, usar Content-Type por defecto para JSON
@@ -58,7 +57,24 @@ class ApiService {
       console.log(`🔗 URL completa: ${url}`);
       console.log(`📦 Body:`, finalOptions.body ? finalOptions.body.substring(0, 200) : 'No body');
       
-      const response = await fetch(url, finalOptions);
+      // Timeout de 60 segundos para requests normales
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      
+      let response;
+      try {
+        response = await fetch(url, {
+          ...finalOptions,
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error('La solicitud tardó demasiado. Por favor intenta de nuevo.');
+        }
+        throw error;
+      }
       
       // Verificar el Content-Type antes de parsear JSON
       const contentType = response.headers.get('content-type');
@@ -197,12 +213,12 @@ class ApiService {
   }
 
   /**
-   * Reenvía un reporte a n8n para reprocesar coincidencias
+   * Busca coincidencias directamente usando embeddings
    */
-  async sendReportToN8n(reportId) {
-    return this.request(ENDPOINTS.N8N_SEND_TO_WEBHOOK, {
-      method: 'POST',
-      body: JSON.stringify({ report_id: reportId })
+  async findDirectMatches(reportId, matchThreshold = 0.7, topK = 10) {
+    const url = `${this.baseUrl}/direct-matches/find/${reportId}?match_threshold=${matchThreshold}&top_k=${topK}`;
+    return this.request(url, {
+      method: 'POST'
     });
   }
 

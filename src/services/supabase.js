@@ -435,10 +435,21 @@ const reportService = {
 
   requestMatchesAnalysis: async (reportId) => {
     try {
-      const result = await apiService.sendReportToN8n(reportId);
-      if (result.error) throw result.error;
-      return { data: result.data, error: null };
+      console.log('🔍 Buscando coincidencias para reporte:', reportId);
+      const directResult = await apiService.findDirectMatches(reportId);
+      
+      if (directResult && !directResult.error && directResult.data) {
+        console.log('✅ Coincidencias encontradas:', directResult.data);
+        return { data: directResult.data, error: null };
+      }
+      
+      if (directResult && directResult.error) {
+        throw directResult.error;
+      }
+      
+      throw new Error('No se pudieron encontrar coincidencias');
     } catch (error) {
+      console.error('❌ Error buscando coincidencias:', error);
       return { data: null, error };
     }
   },

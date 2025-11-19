@@ -1,18 +1,23 @@
 # backend/routers/rag_search.py
 from fastapi import APIRouter, HTTPException, Query, Body
 from typing import List, Dict, Any, Optional
-import os
+import os, sys
+from pathlib import Path
 import numpy as np
-from supabase import create_client, Client
+from supabase import Client
+
+# Agregar la carpeta parent al path para poder importar utils
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils.supabase_client import get_supabase_client
 
 router = APIRouter(prefix="/rag", tags=["rag-search"])
 
 def _sb() -> Client:
-    url = os.getenv("SUPABASE_URL")
-    key = os.getenv("SUPABASE_SERVICE_KEY")
-    if not url or not key:
-        raise HTTPException(500, "Faltan SUPABASE_URL / SUPABASE_SERVICE_KEY")
-    return create_client(url, key)
+    """Crea un cliente de Supabase con configuración optimizada de timeouts"""
+    try:
+        return get_supabase_client()
+    except Exception as e:
+        raise HTTPException(500, f"Error conectando a Supabase: {str(e)}")
 
 @router.post("/search")
 async def rag_search(
