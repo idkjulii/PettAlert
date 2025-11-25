@@ -2,7 +2,7 @@
 
 ## ❌ Error
 ```
-API Error: https://smtp-far-saw-tribe.trycloudflare.com/reports/ 
+API Error: https://publications-publishers-calculations-act.trycloudflare.com/reports/ 
 TypeError: Network request failed
 ```
 

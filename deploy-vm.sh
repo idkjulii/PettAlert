@@ -77,3 +77,5 @@ echo "  Reiniciar servicio: docker-compose restart backend"
 echo "  Ver estado: docker-compose ps"
 
 
+
+

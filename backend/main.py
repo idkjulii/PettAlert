@@ -31,6 +31,7 @@ from routers import embeddings_supabase as embeddings_router
 from routers import rag_search as rag_router
 from routers import direct_matches as direct_matches_router
 from routers import fix_embeddings as fix_embeddings_router
+from routers import pets as pets_router
 
 # =========================
 # Configuración base
@@ -98,6 +99,7 @@ app.include_router(embeddings_router.router)
 app.include_router(rag_router.router)
 app.include_router(direct_matches_router.router)
 app.include_router(fix_embeddings_router.router)
+app.include_router(pets_router.router)
 
 # =========================
 # Helpers

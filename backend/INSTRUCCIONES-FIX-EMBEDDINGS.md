@@ -109,3 +109,5 @@ Deberías ver similitudes calculadas correctamente (0.0 a 1.0).
 - **Todos los reportes creados DESPUÉS del fix:** Tendrán embeddings como VECTOR automáticamente ✅
 
 
+
+

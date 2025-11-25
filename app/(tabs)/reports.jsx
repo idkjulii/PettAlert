@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Button, Card, IconButton, Text, Title } from 'react-native-paper';
+import { ActivityIndicator, Button, Card, IconButton, Text, Title, SegmentedButtons } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { reportService } from '../../src/services/supabase';
 import { useAuthStore } from '../../src/stores/authStore';
@@ -10,8 +10,11 @@ import { useMatchesStore } from '../../src/stores/matchStore';
 export default function ReportsScreen() {
   const { getUserId } = useAuthStore();
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState('my-reports');
   const [reports, setReports] = useState([]);
+  const [allReports, setAllReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingAllReports, setLoadingAllReports] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [matchesLoadingId, setMatchesLoadingId] = useState(null);
   const matchesByReport = useMatchesStore((state) => state.matchesByReport);
@@ -22,6 +25,12 @@ export default function ReportsScreen() {
   useEffect(() => {
     loadUserReports();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'explore' && allReports.length === 0) {
+      loadAllReports();
+    }
+  }, [activeTab]);
 
   const loadUserReports = async () => {
     try {
@@ -44,6 +53,36 @@ export default function ReportsScreen() {
       console.error('Error inesperado:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAllReports = async () => {
+    try {
+      setLoadingAllReports(true);
+      const userId = getUserId();
+      
+      if (!userId) {
+        setLoadingAllReports(false);
+        return;
+      }
+
+      const { data, error } = await reportService.getAllReports();
+      
+      if (error) {
+        console.error('Error cargando todos los reportes:', error);
+        Alert.alert('Error', 'No se pudieron cargar los reportes. Por favor, intenta de nuevo.');
+      } else {
+        // Filtrar solo reportes activos y excluir los del usuario actual
+        const otherUsersReports = (data || []).filter(
+          report => report.status === 'active' && report.reporter_id !== userId
+        );
+        setAllReports(otherUsersReports);
+      }
+    } catch (error) {
+      console.error('Error inesperado cargando todos los reportes:', error);
+      Alert.alert('Error', 'Ocurrió un error inesperado al cargar los reportes.');
+    } finally {
+      setLoadingAllReports(false);
     }
   };
 
@@ -104,6 +143,14 @@ export default function ReportsScreen() {
     router.push({
       pathname: '/report/[id]',
       params: { id: matchedReportId, from: 'reports' }
+    });
+  };
+
+  const handleViewReport = (reportId) => {
+    if (!reportId) return;
+    router.push({
+      pathname: '/report/[id]',
+      params: { id: reportId, from: 'explore' }
     });
   };
 
@@ -238,87 +285,179 @@ export default function ReportsScreen() {
     );
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
+  const renderMyReports = () => {
+    if (loading) {
+      return (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
           <Text style={styles.loadingText}>Cargando reportes...</Text>
         </View>
-      </SafeAreaView>
-    );
-  }
+      );
+    }
+
+    if (reports.length === 0) {
+      return (
+        <Card style={styles.emptyCard}>
+          <Card.Content style={styles.emptyContent}>
+            <Text style={styles.emptyText}>
+              📝 No tienes reportes creados aún
+            </Text>
+            <Text style={styles.emptySubtext}>
+              Crea tu primer reporte desde la pantalla de inicio
+            </Text>
+          </Card.Content>
+        </Card>
+      );
+    }
+
+    return reports.map((report) => (
+      <Card key={report.id} style={styles.reportCard}>
+        <Card.Content>
+          <View style={styles.reportHeader}>
+            <View style={styles.reportHeaderLeft}>
+              <Text style={styles.reportType}>
+                {report.type === 'lost' ? '🔴 Mascota Perdida' : '🟢 Mascota Encontrada'}
+              </Text>
+            </View>
+            <View style={styles.reportActions}>
+              <IconButton
+                icon="pencil"
+                size={20}
+                iconColor="#007AFF"
+                onPress={() => handleEditReport(report)}
+                style={styles.actionButton}
+              />
+              <IconButton
+                icon="delete"
+                size={20}
+                iconColor="#FF3B30"
+                onPress={() => handleDeleteReport(report)}
+                style={styles.actionButton}
+                disabled={deletingId === report.id}
+              />
+            </View>
+          </View>
+          <Text style={styles.reportPetName}>
+            {report.pet_name || 'Sin nombre'}
+          </Text>
+          <Text style={styles.reportDescription} numberOfLines={2}>
+            {report.description || 'Sin descripción'}
+          </Text>
+          <Text style={styles.reportDate}>
+            📅 {new Date(report.created_at).toLocaleDateString()}
+          </Text>
+          <Text style={styles.reportStatus}>
+            Estado: {report.status === 'active' ? 'Activo' : 'Resuelto'}
+          </Text>
+          <Button
+            mode="contained"
+            onPress={() => handleFindMatches(report)}
+            style={styles.matchButton}
+            loading={matchesLoadingId === report.id}
+            disabled={matchesLoadingId === report.id}
+          >
+            Buscar coincidencias
+          </Button>
+          {renderMatches(report)}
+        </Card.Content>
+      </Card>
+    ));
+  };
+
+  const renderExploreReports = () => {
+    if (loadingAllReports) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Cargando reportes...</Text>
+        </View>
+      );
+    }
+
+    if (allReports.length === 0) {
+      return (
+        <Card style={styles.emptyCard}>
+          <Card.Content style={styles.emptyContent}>
+            <Text style={styles.emptyText}>
+              🔍 No hay reportes disponibles
+            </Text>
+            <Text style={styles.emptySubtext}>
+              Aún no se han subido reportes públicos
+            </Text>
+          </Card.Content>
+        </Card>
+      );
+    }
+
+    return allReports.map((report) => {
+      const photo = Array.isArray(report.photos) && report.photos.length > 0
+        ? report.photos[0]
+        : null;
+
+      return (
+        <Card key={report.id} style={styles.reportCard}>
+          <Card.Content>
+            <View style={styles.reportHeader}>
+              <View style={styles.reportHeaderLeft}>
+                <Text style={styles.reportType}>
+                  {report.type === 'lost' ? '🔴 Mascota Perdida' : '🟢 Mascota Encontrada'}
+                </Text>
+              </View>
+            </View>
+            {photo && (
+              <Image source={{ uri: photo }} style={styles.exploreReportImage} />
+            )}
+            <Text style={styles.reportPetName}>
+              {report.pet_name || 'Sin nombre'}
+            </Text>
+            <Text style={styles.reportDescription} numberOfLines={3}>
+              {report.description || 'Sin descripción'}
+            </Text>
+            <Text style={styles.reportDate}>
+              📅 {new Date(report.created_at).toLocaleDateString()}
+            </Text>
+            {report.species && (
+              <Text style={styles.reportSpecies}>
+                🐾 {report.species}
+              </Text>
+            )}
+            <Button
+              mode="outlined"
+              onPress={() => handleViewReport(report.id)}
+              style={styles.viewButton}
+            >
+              Ver detalles
+            </Button>
+          </Card.Content>
+        </Card>
+      );
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.headerContainer}>
+        <Title style={styles.title}>
+          {activeTab === 'my-reports' ? 'Mis Reportes' : 'Explorar Reportes'}
+        </Title>
+        <SegmentedButtons
+          value={activeTab}
+          onValueChange={setActiveTab}
+          buttons={[
+            {
+              value: 'my-reports',
+              label: 'Mis Reportes',
+            },
+            {
+              value: 'explore',
+              label: 'Explorar',
+            },
+          ]}
+          style={styles.segmentedButtons}
+        />
+      </View>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <Title style={styles.title}>Mis Reportes</Title>
-        
-        {reports.length === 0 ? (
-          <Card style={styles.emptyCard}>
-            <Card.Content style={styles.emptyContent}>
-              <Text style={styles.emptyText}>
-                📝 No tienes reportes creados aún
-              </Text>
-              <Text style={styles.emptySubtext}>
-                Crea tu primer reporte desde la pantalla de inicio
-              </Text>
-            </Card.Content>
-          </Card>
-        ) : (
-          reports.map((report) => (
-            <Card key={report.id} style={styles.reportCard}>
-              <Card.Content>
-                <View style={styles.reportHeader}>
-                  <View style={styles.reportHeaderLeft}>
-                    <Text style={styles.reportType}>
-                      {report.type === 'lost' ? '🔴 Mascota Perdida' : '🟢 Mascota Encontrada'}
-                    </Text>
-                  </View>
-                  <View style={styles.reportActions}>
-                    <IconButton
-                      icon="pencil"
-                      size={20}
-                      iconColor="#007AFF"
-                      onPress={() => handleEditReport(report)}
-                      style={styles.actionButton}
-                    />
-                    <IconButton
-                      icon="delete"
-                      size={20}
-                      iconColor="#FF3B30"
-                      onPress={() => handleDeleteReport(report)}
-                      style={styles.actionButton}
-                      disabled={deletingId === report.id}
-                    />
-                  </View>
-                </View>
-                <Text style={styles.reportPetName}>
-                  {report.pet_name || 'Sin nombre'}
-                </Text>
-                <Text style={styles.reportDescription} numberOfLines={2}>
-                  {report.description || 'Sin descripción'}
-                </Text>
-                <Text style={styles.reportDate}>
-                  📅 {new Date(report.created_at).toLocaleDateString()}
-                </Text>
-                <Text style={styles.reportStatus}>
-                  Estado: {report.status === 'active' ? 'Activo' : 'Resuelto'}
-                </Text>
-                <Button
-                  mode="contained"
-                  onPress={() => handleFindMatches(report)}
-                  style={styles.matchButton}
-                  loading={matchesLoadingId === report.id}
-                  disabled={matchesLoadingId === report.id}
-                >
-                  Buscar coincidencias
-                </Button>
-                {renderMatches(report)}
-              </Card.Content>
-            </Card>
-          ))
-        )}
+        {activeTab === 'my-reports' ? renderMyReports() : renderExploreReports()}
       </ScrollView>
     </SafeAreaView>
   );
@@ -329,10 +468,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  headerContainer: {
+    padding: 16,
+    paddingBottom: 8,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    minHeight: 200,
   },
   loadingText: {
     marginTop: 16,
@@ -349,8 +496,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 20,
+    marginBottom: 12,
     textAlign: 'center',
+  },
+  segmentedButtons: {
+    marginTop: 8,
   },
   emptyCard: {
     marginTop: 40,
@@ -496,6 +646,22 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: '#D32F2F',
     fontStyle: 'italic',
+  },
+  exploreReportImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 12,
+    resizeMode: 'cover',
+  },
+  viewButton: {
+    marginTop: 12,
+  },
+  reportSpecies: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+    marginBottom: 8,
   },
 });
 

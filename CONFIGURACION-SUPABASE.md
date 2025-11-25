@@ -1,4 +1,4 @@
-# Configuración de Supabase para Pet Finder App
+# Configuración de Supabase para PetAlert App
 
 ## Pasos para configurar Supabase
 
@@ -22,7 +22,7 @@ Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido:
 ```env
 EXPO_PUBLIC_SUPABASE_URL=https://tu-proyecto-id.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=tu-clave-anonima-aqui
-EXPO_PUBLIC_APP_NAME=Pet Finder
+EXPO_PUBLIC_APP_NAME=PetAlert
 EXPO_PUBLIC_APP_VERSION=1.0.0
 ```
 

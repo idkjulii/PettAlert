@@ -126,7 +126,7 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Title style={styles.title}>🐾 Pet Finder</Title>
+            <Title style={styles.title}>🐾 PetAlert</Title>
             <Paragraph style={styles.subtitle}>
               Únete a nuestra comunidad para ayudar a encontrar mascotas perdidas
             </Paragraph>

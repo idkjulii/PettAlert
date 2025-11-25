@@ -1,6 +1,6 @@
-# 🧪 Guía de Testing - Pet Finder App
+# 🧪 Guía de Testing - PetAlert App
 
-Esta guía te ayudará a probar todas las funcionalidades de la aplicación Pet Finder paso a paso.
+Esta guía te ayudará a probar todas las funcionalidades de la aplicación PetAlert paso a paso.
 
 ## 🚀 Scripts de Desarrollo
 

@@ -1,4 +1,4 @@
-# 🐾 Pet Finder App
+# 🐾 PetAlert App
 
 Una aplicación móvil para ayudar a encontrar mascotas perdidas usando React Native y Expo.
 
@@ -7,7 +7,7 @@ Una aplicación móvil para ayudar a encontrar mascotas perdidas usando React Na
 ### 1. Clonar el repositorio
 ```bash
 git clone <repository-url>
-cd PetFinderApp
+cd PetAlertApp
 ```
 
 ### 2. Instalar dependencias
@@ -68,7 +68,7 @@ npm start
 ## 🏗️ Estructura del Proyecto
 
 ```
-PetFinderApp/
+PetAlertApp/
 ├── app/                    # Páginas de Expo Router
 │   ├── (auth)/            # Pantallas de autenticación
 │   │   ├── login.jsx      # Inicio de sesión
@@ -133,7 +133,7 @@ Crea un archivo `.env` en el directorio raíz:
 ```env
 EXPO_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=tu-clave-anonima-aqui
-EXPO_PUBLIC_APP_NAME=Pet Finder
+EXPO_PUBLIC_APP_NAME=PetAlert
 EXPO_PUBLIC_APP_VERSION=1.0.0
 EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=tu-clave-de-google-maps
 ```

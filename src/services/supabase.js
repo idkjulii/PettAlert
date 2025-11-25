@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
 import apiService from './api';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://eamsbroadstwkrkjcuvo.supabase.co';
@@ -51,9 +52,33 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+// Función auxiliar para obtener la URL de redirección correcta
+const getRedirectUrl = (path = '/(auth)/login') => {
+  // Intentar obtener la URL del manifest de Expo
+  const manifestUrl = Constants.expoConfig?.hostUri || Constants.manifest?.hostUri;
+  
+  if (manifestUrl) {
+    // Si hay una URL del túnel (ej: vyofhco-idkjulii-8081.exp.direct)
+    return `exp://${manifestUrl}/--${path}`;
+  }
+  
+  // Fallback: usar localhost o IP local
+  // Intentar detectar si estamos en desarrollo con túnel
+  const debuggerHost = Constants.expoConfig?.debuggerHost || Constants.manifest?.debuggerHost;
+  if (debuggerHost) {
+    return `exp://${debuggerHost}/--${path}`;
+  }
+  
+  // Último fallback
+  return `exp://localhost:8081/--${path}`;
+};
+
 const authService = {
   signUp: async (email, password, fullName) => {
     try {
+      const redirectUrl = getRedirectUrl('/(auth)/login');
+      console.log('🔗 URL de redirección para registro:', redirectUrl);
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -61,10 +86,15 @@ const authService = {
           data: {
             full_name: fullName,
           },
+          emailRedirectTo: redirectUrl,
         },
       });
       
       if (error) throw error;
+      
+      // El perfil se crea automáticamente mediante el trigger en Supabase
+      // No necesitamos crearlo manualmente aquí
+      
       return { data, error: null };
     } catch (error) {
       return { data: null, error };
@@ -117,6 +147,81 @@ const authService = {
 
   onAuthStateChange: (callback) => {
     return supabase.auth.onAuthStateChange(callback);
+  },
+
+  // Recuperar contraseña - Enviar email de recuperación
+  resetPassword: async (email) => {
+    try {
+      const redirectUrl = getRedirectUrl('/(auth)/reset-password');
+      console.log('🔗 URL de redirección para reset password:', redirectUrl);
+
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl,
+      });
+      
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Actualizar contraseña (después de recuperación)
+  updatePassword: async (newPassword) => {
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Reenviar email de confirmación
+  resendConfirmation: async (email) => {
+    try {
+      const { data, error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+      });
+      
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Verificar si el email está confirmado
+  checkEmailConfirmation: async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      return { 
+        isConfirmed: user?.email_confirmed_at !== null, 
+        user,
+        error: null 
+      };
+    } catch (error) {
+      return { isConfirmed: false, user: null, error };
+    }
+  },
+
+  // Actualizar perfil del usuario (metadata)
+  updateUserMetadata: async (metadata) => {
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: metadata,
+      });
+      
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
   },
 };
 
@@ -189,6 +294,7 @@ const profileService = {
       
       const profileData = {
         id: userId,
+        email: userData.email || authUser?.email || null,
         full_name: userData.full_name || authUser?.user_metadata?.full_name || authUser?.email?.split('@')[0] || 'Usuario',
         avatar_url: userData.avatar_url || null,
         phone: userData.phone || null,
@@ -311,6 +417,335 @@ const petService = {
       
       if (error) throw error;
       return { data, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // ==============================================
+  // FUNCIONES DE SALUD VETERINARIA (Backend API)
+  // ==============================================
+  
+  // Obtener mascota con resumen de salud
+  getPetWithHealth: async (petId) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return { data: result.pet, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Historial de salud
+  getHealthHistory: async (petId, limit = 50, offset = 0) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/health-history?limit=${limit}&offset=${offset}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.history, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  addHealthEvent: async (petId, eventData) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/health-history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(eventData)
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.event, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Vacunaciones
+  getVaccinations: async (petId) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/vaccinations`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.vaccinations, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  addVaccination: async (petId, vaccinationData) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/vaccinations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vaccinationData)
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.vaccination, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  updateVaccination: async (vaccinationId, updates) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/vaccinations/${vaccinationId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.vaccination, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Medicamentos
+  getMedications: async (petId, activeOnly = false) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/medications?active_only=${activeOnly}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.medications, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  addMedication: async (petId, medicationData) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/medications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(medicationData)
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.medication, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  updateMedication: async (medicationId, updates) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/medications/${medicationId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.medication, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Indicadores de bienestar
+  getWellnessIndicators: async (petId, limit = 30) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/wellness?limit=${limit}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.indicators, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  addWellnessIndicator: async (petId, indicatorData) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/wellness`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(indicatorData)
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.indicator, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Recordatorios
+  getReminders: async (petId, activeOnly = true, upcomingOnly = false) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/reminders?active_only=${activeOnly}&upcoming_only=${upcomingOnly}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.reminders, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  createReminder: async (petId, reminderData) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/reminders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reminderData)
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.reminder, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  completeReminder: async (reminderId) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/reminders/${reminderId}/complete`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.reminder, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Documentos médicos
+  getMedicalDocuments: async (petId) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/documents`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.documents, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  addMedicalDocument: async (petId, documentData) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/documents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(documentData)
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.document, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Planes de cuidado
+  getCarePlans: async (petId, activeOnly = false) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/care-plans?active_only=${activeOnly}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.care_plans, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  createCarePlan: async (petId, planData) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/${petId}/care-plans`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(planData)
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.care_plan, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  updateChecklistItem: async (planId, itemId, updates) => {
+    try {
+      const { BACKEND_URL } = await import('../config/backend');
+      const response = await fetch(`${BACKEND_URL}/pets/care-plans/${planId}/checklist/${itemId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      return { data: result.item, error: null };
     } catch (error) {
       return { data: null, error };
     }

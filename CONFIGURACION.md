@@ -1,4 +1,4 @@
-# Pet Finder App - Configuración
+# PetAlert App - Configuración
 
 ## Problemas Solucionados
 

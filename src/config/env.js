@@ -1,4 +1,4 @@
-// Configuración de variables de entorno para Pet Finder App
+// Configuración de variables de entorno para PetAlert App
 // Este archivo debe ser configurado con las credenciales reales de Supabase
 
 export const config = {
@@ -11,7 +11,7 @@ export const config = {
   
   // Configuración de la aplicación
   app: {
-    name: process.env.EXPO_PUBLIC_APP_NAME || 'Pet Finder',
+    name: process.env.EXPO_PUBLIC_APP_NAME || 'PetAlert',
     version: process.env.EXPO_PUBLIC_APP_VERSION || '1.0.0',
   },
   

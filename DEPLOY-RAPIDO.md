@@ -170,3 +170,5 @@ Para más detalles, consulta: `GUIA-DEPLOY-GOOGLE-CLOUD.md`
 💡 **Costo estimado:** ~$35-50/mes con e2-medium
 
 
+
+

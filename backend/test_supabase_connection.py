@@ -181,3 +181,5 @@ print("📝 Si todos los tests pasaron, la conexión a Supabase está funcionand
 print("📝 Si hay errores, revisa backend/SOLUCION-TIMEOUT-SUPABASE.md")
 
 
+
+

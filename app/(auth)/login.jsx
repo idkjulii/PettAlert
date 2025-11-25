@@ -91,7 +91,7 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Title style={styles.title}>🐾 Pet Finder</Title>
+            <Title style={styles.title}>🐾 PetAlert</Title>
             <Paragraph style={styles.subtitle}>
               Inicia sesión para ayudar a encontrar mascotas perdidas
             </Paragraph>

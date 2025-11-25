@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Card, Text, Title } from 'react-native-paper';
+import { ScrollView, StyleSheet, View, TouchableOpacity, Image, RefreshControl } from 'react-native';
+import { ActivityIndicator, Card, Text, Title, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { petService } from '../../src/services/supabase';
 import { useAuthStore } from '../../src/stores/authStore';
 
 export default function PetsScreen() {
-  const { getUserId } = useAuthStore();
+  const { getUserId, isAuthenticated, user } = useAuthStore();
+  const router = useRouter();
   const [pets, setPets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadUserPets();
@@ -16,21 +19,42 @@ export default function PetsScreen() {
 
   const loadUserPets = async () => {
     try {
-      const userId = getUserId();
-      if (!userId) {
+      setError(null);
+      setLoading(true);
+      
+      // Verificar autenticación
+      if (!isAuthenticated()) {
+        console.warn('Usuario no autenticado');
+        setError('Debes iniciar sesión para ver tus mascotas');
         setLoading(false);
         return;
       }
 
-      const { data, error } = await petService.getUserPets(userId);
+      const userId = getUserId();
+      console.log('🔍 Cargando mascotas para usuario:', userId);
       
-      if (error) {
-        console.error('Error cargando mascotas:', error);
+      if (!userId) {
+        console.warn('No se pudo obtener el ID del usuario');
+        setError('No se pudo obtener tu información de usuario');
+        setLoading(false);
+        return;
+      }
+
+      const { data, error: fetchError } = await petService.getUserPets(userId);
+      
+      if (fetchError) {
+        console.error('❌ Error cargando mascotas:', fetchError);
+        setError(`Error al cargar mascotas: ${fetchError.message || fetchError}`);
+        setPets([]);
       } else {
+        console.log('✅ Mascotas cargadas:', data?.length || 0);
         setPets(data || []);
+        setError(null);
       }
     } catch (error) {
-      console.error('Error inesperado:', error);
+      console.error('❌ Error inesperado:', error);
+      setError(`Error inesperado: ${error.message || error}`);
+      setPets([]);
     } finally {
       setLoading(false);
     }
@@ -47,10 +71,64 @@ export default function PetsScreen() {
     );
   }
 
+  // Si hay error, mostrarlo
+  if (error && !loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <Title style={styles.title}>Mis Mascotas</Title>
+          <Card style={styles.errorCard}>
+            <Card.Content style={styles.errorContent}>
+              <Text style={styles.errorText}>⚠️ {error}</Text>
+              <Button
+                mode="contained"
+                onPress={loadUserPets}
+                style={styles.retryButton}
+              >
+                Reintentar
+              </Button>
+            </Card.Content>
+          </Card>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <Title style={styles.title}>Mis Mascotas</Title>
+      <SafeAreaView style={styles.container}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={loadUserPets} />
+        }
+      >
+        <View style={styles.header}>
+          <Title style={styles.title}>Mis Mascotas</Title>
+          <Button
+            mode="contained"
+            onPress={() => router.push('/pets/create')}
+            icon="plus"
+            style={styles.addButton}
+            compact
+          >
+            Nueva Mascota
+          </Button>
+        </View>
+        
+        {/* Debug info (solo en desarrollo) */}
+        {__DEV__ && user && (
+          <Card style={styles.debugCard}>
+            <Card.Content>
+              <Text style={styles.debugText}>
+                Usuario: {user.email || user.id?.substring(0, 8)}...
+              </Text>
+              <Text style={styles.debugText}>
+                Mascotas encontradas: {pets.length}
+              </Text>
+            </Card.Content>
+          </Card>
+        )}
         
         {pets.length === 0 ? (
           <Card style={styles.emptyCard}>
@@ -61,34 +139,77 @@ export default function PetsScreen() {
               <Text style={styles.emptySubtext}>
                 Registra tu primera mascota para poder crear reportes
               </Text>
+              <Button
+                mode="contained"
+                onPress={() => router.push('/pets/create')}
+                style={styles.createButton}
+                icon="plus"
+              >
+                Registrar Mi Primera Mascota
+              </Button>
+              {__DEV__ && (
+                <Button
+                  mode="outlined"
+                  onPress={() => {
+                    console.log('Usuario:', user);
+                    console.log('UserId:', getUserId());
+                    console.log('Autenticado:', isAuthenticated());
+                  }}
+                  style={styles.debugButton}
+                >
+                  Ver Info Debug
+                </Button>
+              )}
             </Card.Content>
           </Card>
         ) : (
           pets.map((pet) => (
-            <Card key={pet.id} style={styles.petCard}>
-              <Card.Content>
-                <Text style={styles.petName}>
-                  {pet.name || 'Sin nombre'}
-                </Text>
-                <Text style={styles.petInfo}>
-                  🐕 {pet.species === 'dog' ? 'Perro' : pet.species === 'cat' ? 'Gato' : 'Otro'} • {pet.breed || 'Raza no especificada'}
-                </Text>
-                <Text style={styles.petInfo}>
-                  📏 Tamaño: {pet.size === 'small' ? 'Pequeño' : pet.size === 'medium' ? 'Mediano' : 'Grande'}
-                </Text>
-                <Text style={styles.petInfo}>
-                  🎨 Color: {pet.color || 'No especificado'}
-                </Text>
-                {pet.is_lost && (
-                  <Text style={styles.lostStatus}>
-                    ⚠️ MASCOTA PERDIDA
-                  </Text>
-                )}
-                <Text style={styles.petDate}>
-                  📅 Registrado: {new Date(pet.created_at).toLocaleDateString()}
-                </Text>
-              </Card.Content>
-            </Card>
+            <TouchableOpacity
+              key={pet.id}
+              onPress={() => router.push(`/pets/${pet.id}`)}
+              activeOpacity={0.7}
+            >
+              <Card style={styles.petCard}>
+                <Card.Content style={styles.petCardContent}>
+                  {pet.photos && pet.photos.length > 0 && pet.photos[0] && (
+                    <Image
+                      source={{ uri: pet.photos[0] }}
+                      style={styles.petImage}
+                      resizeMode="cover"
+                    />
+                  )}
+                  <View style={styles.petInfoContainer}>
+                    <Text style={styles.petName}>
+                      {pet.name || 'Sin nombre'}
+                    </Text>
+                    <Text style={styles.petInfo}>
+                      🐕 {pet.species === 'dog' ? 'Perro' : pet.species === 'cat' ? 'Gato' : 'Otro'} • {pet.breed || 'Raza no especificada'}
+                    </Text>
+                    <Text style={styles.petInfo}>
+                      📏 Tamaño: {pet.size === 'small' ? 'Pequeño' : pet.size === 'medium' ? 'Mediano' : 'Grande'}
+                    </Text>
+                    <Text style={styles.petInfo}>
+                      🎨 Color: {pet.color || 'No especificado'}
+                    </Text>
+                    {pet.is_lost && (
+                      <Text style={styles.lostStatus}>
+                        ⚠️ MASCOTA PERDIDA
+                      </Text>
+                    )}
+                    <Text style={styles.petDate}>
+                      📅 Registrado: {new Date(pet.created_at).toLocaleDateString()}
+                    </Text>
+                    <Button
+                      mode="outlined"
+                      onPress={() => router.push(`/pets/${pet.id}`)}
+                      style={styles.viewButton}
+                    >
+                      Ver Detalles y Salud
+                    </Button>
+                  </View>
+                </Card.Content>
+              </Card>
+            </TouchableOpacity>
           ))
         )}
       </ScrollView>
@@ -117,12 +238,23 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 20,
-    textAlign: 'center',
+    flex: 1,
+  },
+  addButton: {
+    marginLeft: 12,
+  },
+  createButton: {
+    marginTop: 16,
   },
   emptyCard: {
     marginTop: 40,
@@ -147,11 +279,27 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     elevation: 2,
   },
+  petCardContent: {
+    flexDirection: 'row',
+    padding: 12,
+  },
+  petImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  petInfoContainer: {
+    flex: 1,
+  },
   petName: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 8,
+  },
+  viewButton: {
+    marginTop: 12,
   },
   petInfo: {
     fontSize: 14,
@@ -169,6 +317,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     marginTop: 8,
+  },
+  errorCard: {
+    marginTop: 40,
+    elevation: 2,
+    backgroundColor: '#ffebee',
+  },
+  errorContent: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#c62828',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    marginTop: 8,
+  },
+  debugCard: {
+    marginBottom: 16,
+    backgroundColor: '#e3f2fd',
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#1976d2',
+    fontFamily: 'monospace',
+  },
+  debugButton: {
+    marginTop: 12,
   },
 });
 

@@ -8,7 +8,7 @@ import { usePushNotifications } from '../src/hooks/usePushNotifications';
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
-  const { user, session, initialize, initialized } = useAuthStore();
+  const { user, session, initialize, initialized, subscribeToAuthChanges } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const { error: pushError } = usePushNotifications();
@@ -31,6 +31,26 @@ export default function RootLayout() {
 
     initializeAuth();
   }, [initialize]);
+
+  // Suscribirse a cambios de autenticación
+  useEffect(() => {
+    if (!initialized) return;
+
+    console.log('🔔 Suscribiéndose a cambios de autenticación...');
+    const subscription = subscribeToAuthChanges();
+
+    return () => {
+      console.log('🔕 Desuscribiéndose de cambios de autenticación...');
+      // El método onAuthStateChange de Supabase devuelve un objeto con unsubscribe
+      if (subscription) {
+        if (typeof subscription.unsubscribe === 'function') {
+          subscription.unsubscribe();
+        } else if (subscription?.data?.subscription?.unsubscribe) {
+          subscription.data.subscription.unsubscribe();
+        }
+      }
+    };
+  }, [initialized, subscribeToAuthChanges]);
 
   useEffect(() => {
     if (!initialized || isLoading) return;

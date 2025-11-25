@@ -40,3 +40,5 @@ echo -e "\n${YELLOW}📋 Últimas líneas del log:${NC}"
 docker-compose logs --tail=20 backend
 
 
+
+

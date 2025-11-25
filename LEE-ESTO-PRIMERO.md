@@ -1,4 +1,4 @@
-# 🎯 LEE ESTO PRIMERO - Estado del Proyecto PetFinder
+# 🎯 LEE ESTO PRIMERO - Estado del Proyecto PetAlert
 
 **Fecha:** Noviembre 19, 2025  
 **Última conversación:** Migración CLIP+N8N → MegaDescriptor Backend Local

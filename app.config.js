@@ -14,7 +14,7 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.petfinder.app",
+      bundleIdentifier: "com.petalert.app",
       infoPlist: {
         NSLocationWhenInUseUsageDescription: "Necesitamos tu ubicación para mostrar mascotas perdidas cerca de ti.",
         NSCameraUsageDescription: "Necesitamos acceso a la cámara para tomar fotos de mascotas.",
@@ -27,7 +27,7 @@ export default {
         backgroundImage: "./assets/images/android-icon-background.png",
         backgroundColor: "#ffffff"
       },
-      package: "com.petfinder.app",
+      package: "com.petalert.app",
       permissions: [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -66,7 +66,7 @@ export default {
       appVersion: process.env.EXPO_PUBLIC_APP_VERSION || "1.0.0",
       backendUrl:
         process.env.EXPO_PUBLIC_BACKEND_URL ||
-        "https://symposium-created-charity-ian.trycloudflare.com",
+        "https://drill-raleigh-exercise-occurred.trycloudflare.com",
       
       // Variables de entorno para mapas
       googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "",

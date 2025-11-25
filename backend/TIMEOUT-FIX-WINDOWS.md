@@ -121,3 +121,5 @@ connect=120.0,  # Aumentar a 2 minutos
 
 Si ves errores persistentes después de estos cambios, puede ser un problema de red más profundo que requiere investigar la configuración de Windows o la red.
 
+
+

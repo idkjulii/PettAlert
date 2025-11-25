@@ -60,3 +60,5 @@ O sigue las instrucciones que aparecen en pantalla para abrir 3 terminales.
 Tu aplicación ahora debería funcionar sin errores de timeout. 🚀
 
 
+
+

@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.petfinder.app",
+      "bundleIdentifier": "com.petalert.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para mostrar mascotas perdidas cerca de ti.",
         "NSCameraUsageDescription": "Necesitamos acceso a la cámara para tomar fotos de mascotas.",
@@ -27,7 +27,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.petfinder.app",
+      "package": "com.petalert.app",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",

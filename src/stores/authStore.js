@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { authService } from '../services/supabase';
+import { authService, profileService } from '../services/supabase';
 
 export const useAuthStore = create((set, get) => ({
   // Estado inicial
@@ -32,6 +32,18 @@ export const useAuthStore = create((set, get) => ({
         session: data.session,
         loading: false,
       });
+
+      // Asegurar que el perfil existe después del login
+      if (data.user) {
+        try {
+          await profileService.ensureProfile(data.user.id, {
+            full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Usuario',
+          });
+        } catch (profileError) {
+          // No es crítico si falla, el perfil se creará en el próximo intento
+          console.warn('No se pudo asegurar el perfil después del login:', profileError);
+        }
+      }
 
       return { success: true, data };
     } catch (error) {
@@ -114,6 +126,17 @@ export const useAuthStore = create((set, get) => ({
           loading: false,
           initialized: true,
         });
+
+        // Asegurar que el perfil existe al inicializar
+        if (user) {
+          try {
+            await profileService.ensureProfile(user.id, {
+              full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario',
+            });
+          } catch (profileError) {
+            console.warn('No se pudo asegurar el perfil durante la inicialización:', profileError);
+          }
+        }
       } else {
         set({
           user: null,
@@ -188,25 +211,94 @@ export const useAuthStore = create((set, get) => ({
 
   // Suscribirse a cambios de autenticación
   subscribeToAuthChanges: () => {
-    return authService.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session);
+    return authService.onAuthStateChange(async (event, session) => {
+      console.log('🔐 Auth state changed:', event, session?.user?.email || 'sin usuario');
       
-      if (event === 'SIGNED_IN') {
-        set({
-          user: session?.user || null,
-          session: session,
-        });
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        // Obtener el usuario actualizado
+        const { user, error } = await authService.getCurrentUser();
+        
+        if (!error && user) {
+          set({
+            user: user,
+            session: session,
+          });
+          
+          // Asegurar que el perfil existe
+          try {
+            await profileService.ensureProfile(user.id, {
+              full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario',
+            });
+          } catch (profileError) {
+            console.warn('Error asegurando perfil:', profileError);
+          }
+        }
       } else if (event === 'SIGNED_OUT') {
         set({
           user: null,
           session: null,
         });
-      } else if (event === 'TOKEN_REFRESHED') {
-        set({
-          session: session,
-        });
+      } else if (event === 'USER_UPDATED') {
+        const { user, error } = await authService.getCurrentUser();
+        if (!error && user) {
+          set({ user: user });
+        }
       }
     });
+  },
+
+  // Función para recuperar contraseña
+  resetPassword: async (email) => {
+    try {
+      set({ loading: true });
+      const { data, error } = await authService.resetPassword(email);
+      set({ loading: false });
+      
+      if (error) {
+        return { success: false, error };
+      }
+      
+      return { success: true, data };
+    } catch (error) {
+      set({ loading: false });
+      return { success: false, error };
+    }
+  },
+
+  // Función para actualizar contraseña
+  updatePassword: async (newPassword) => {
+    try {
+      set({ loading: true });
+      const { data, error } = await authService.updatePassword(newPassword);
+      set({ loading: false });
+      
+      if (error) {
+        return { success: false, error };
+      }
+      
+      return { success: true, data };
+    } catch (error) {
+      set({ loading: false });
+      return { success: false, error };
+    }
+  },
+
+  // Función para reenviar confirmación de email
+  resendConfirmation: async (email) => {
+    try {
+      set({ loading: true });
+      const { data, error } = await authService.resendConfirmation(email);
+      set({ loading: false });
+      
+      if (error) {
+        return { success: false, error };
+      }
+      
+      return { success: true, data };
+    } catch (error) {
+      set({ loading: false });
+      return { success: false, error };
+    }
   },
 }));
 

@@ -4,7 +4,7 @@
 
 ### 🟢 Cloudflare Tunnel - ACTIVO
 ```
-✅ URL: https://dot-controlling-grid-specifications.trycloudflare.com
+✅ URL: https://publications-publishers-calculations-act.trycloudflare.com
 ✅ Backend accesible a través del túnel
 ✅ Health check respondiendo correctamente
 ```
@@ -72,7 +72,7 @@ En tu celular/emulador:
 
 ### Test 1: Health Check ✅
 ```bash
-curl https://dot-controlling-grid-specifications.trycloudflare.com/health
+curl https://publications-publishers-calculations-act.trycloudflare.com/health
 ```
 
 **Resultado esperado:**
@@ -86,7 +86,7 @@ curl https://dot-controlling-grid-specifications.trycloudflare.com/health
 
 ### Test 2: Embeddings Status
 ```bash
-curl https://dot-controlling-grid-specifications.trycloudflare.com/fix-embeddings/check-missing
+curl https://publications-publishers-calculations-act.trycloudflare.com/fix-embeddings/check-missing
 ```
 
 **Resultado esperado:**
@@ -174,13 +174,13 @@ curl https://dot-controlling-grid-specifications.trycloudflare.com/fix-embedding
 **Al cargar la app:**
 ```
 🔧 [BACKEND CONFIG]
-   EXPO_PUBLIC_BACKEND_URL: https://dot-controlling-grid-specifications.trycloudflare.com
-   BACKEND_URL final: https://dot-controlling-grid-specifications.trycloudflare.com
+   EXPO_PUBLIC_BACKEND_URL: https://publications-publishers-calculations-act.trycloudflare.com
+   BACKEND_URL final: https://publications-publishers-calculations-act.trycloudflare.com
 ```
 
 **Durante búsquedas:**
 ```
-🌐 API Request: POST https://dot-controlling-grid-specifications.trycloudflare.com/embeddings/search_image
+🌐 API Request: POST https://publications-publishers-calculations-act.trycloudflare.com/embeddings/search_image
 ✅ API Response: {...}
 ```
 
