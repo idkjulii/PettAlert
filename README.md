@@ -2,6 +2,8 @@
 
 Una aplicación móvil para ayudar a encontrar mascotas perdidas usando React Native y Expo.
 
+> 📚 **Documentación Completa**: Para una visión general completa del proyecto, arquitectura, componentes y funcionalidades, consulta la [**Documentación General**](./DOCUMENTACION-GENERAL.md).
+
 ## 🚀 Inicio Rápido
 
 ### 1. Clonar el repositorio
