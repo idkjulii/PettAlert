@@ -18,7 +18,7 @@ npm install
 ### 3. Configurar Supabase
 **⚠️ IMPORTANTE**: Antes de ejecutar la aplicación, debes configurar Supabase:
 
-1. Lee la guía completa en [CONFIGURACION-SUPABASE.md](./CONFIGURACION-SUPABASE.md)
+1. Lee la guía completa en [docs/configuracion/CONFIGURACION-SUPABASE.md](./docs/configuracion/CONFIGURACION-SUPABASE.md)
 2. Crea un archivo `.env` en la raíz del proyecto:
    ```env
    EXPO_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
@@ -92,8 +92,19 @@ PetAlertApp/
 │   │   └── authStore.js  # Store de autenticación
 │   └── config/           # Configuración
 │       └── env.js        # Variables de entorno
-├── assets/               # Imágenes y archivos estáticos
-└── components/           # Componentes de plantilla de Expo
+├── docs/                  # 📚 Documentación organizada
+│   ├── guias/            # Guías paso a paso
+│   ├── soluciones/       # Soluciones a problemas
+│   ├── deploy/           # Guías de deployment
+│   ├── configuracion/    # Configuración de servicios
+│   └── diagnosticos/     # Diagnósticos y verificaciones
+├── scripts/               # Scripts de automatización
+│   ├── sql/              # Scripts SQL
+│   └── deployment/       # Scripts de deployment
+├── backend/               # Backend Python
+├── supabase/              # Configuración de Supabase
+├── assets/                # Imágenes y archivos estáticos
+└── components/            # Componentes de plantilla de Expo
 ```
 
 ## 🛠️ Stack Tecnológico
@@ -160,8 +171,20 @@ EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=tu-clave-de-google-maps
 
 ## 📖 Documentación Adicional
 
-- [Configuración de Supabase](./CONFIGURACION-SUPABASE.md) - Guía completa para configurar la base de datos
-- [Guía de Testing](./README-TESTING.md) - Información sobre pruebas
+Toda la documentación está organizada en la carpeta [`docs/`](./docs/). Consulta el [README de documentación](./docs/README.md) para ver el índice completo.
+
+### Guías Principales
+- 📘 [Inicio Rápido](./docs/guias/LEE-ESTO-PRIMERO.md) - Empieza aquí si es tu primera vez
+- 🚀 [Build de la App](./docs/guias/GUIA-SIMPLE-BUILD-APP.md) - Cómo compilar la aplicación
+- ⚙️ [Configuración de Supabase](./docs/configuracion/CONFIGURACION-SUPABASE.md) - Configuración de base de datos
+- 🐳 [Deploy con Docker](./docs/guias/GUIA-COMPLETA-DOCKER-GOOGLE-CLOUD.md) - Deploy en producción
+
+### Categorías de Documentación
+- **Guías**: Tutoriales paso a paso en [`docs/guias/`](./docs/guias/)
+- **Soluciones**: Soluciones a problemas comunes en [`docs/soluciones/`](./docs/soluciones/)
+- **Deploy**: Guías de deployment en [`docs/deploy/`](./docs/deploy/)
+- **Configuración**: Configuración de servicios en [`docs/configuracion/`](./docs/configuracion/)
+- **Diagnósticos**: Herramientas de diagnóstico en [`docs/diagnosticos/`](./docs/diagnosticos/)
 
 ## 🤝 Contribuir
 

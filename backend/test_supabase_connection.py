@@ -183,3 +183,4 @@ print("📝 Si hay errores, revisa backend/SOLUCION-TIMEOUT-SUPABASE.md")
 
 
 
+

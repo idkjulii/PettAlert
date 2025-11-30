@@ -538,3 +538,4 @@ async def update_checklist_item(
     except Exception as e:
         raise HTTPException(500, f"Error actualizando item: {str(e)}")
 
+

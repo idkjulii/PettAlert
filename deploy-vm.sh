@@ -30,9 +30,9 @@ if [ ! -f "backend/.env" ]; then
 fi
 
 if [ ! -f "backend/google-vision-key.json" ]; then
-    echo -e "${RED}❌ Error: backend/google-vision-key.json no encontrado${NC}"
-    echo "Asegúrate de tener tu archivo de credenciales de Google Cloud"
-    exit 1
+    echo -e "${YELLOW}⚠️  Advertencia: backend/google-vision-key.json no encontrado${NC}"
+    echo "Si usas Google Vision API, asegúrate de tener tu archivo de credenciales"
+    echo "Continuando sin Google Vision..."
 fi
 
 # 3. Detener contenedores existentes
@@ -75,6 +75,7 @@ echo "  Ver logs en tiempo real: docker-compose logs -f backend"
 echo "  Detener servicio: docker-compose down"
 echo "  Reiniciar servicio: docker-compose restart backend"
 echo "  Ver estado: docker-compose ps"
+
 
 
 

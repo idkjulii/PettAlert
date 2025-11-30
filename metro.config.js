@@ -5,8 +5,9 @@ const config = getDefaultConfig(__dirname);
 // Configuración adicional para resolver problemas de módulos
 config.resolver.platforms = ['ios', 'android', 'native', 'web'];
 
-// Resolver extensiones de archivo
-config.resolver.sourceExts = ['js', 'jsx', 'json', 'ts', 'tsx'];
+// Resolver extensiones de archivo (usar defaults de Expo + nuestras extensiones)
+const defaultSourceExts = config.resolver.sourceExts || [];
+config.resolver.sourceExts = [...defaultSourceExts, 'ts', 'tsx'];
 
 // Configuración para resolver módulos
 config.resolver.alias = {
@@ -26,10 +27,8 @@ config.transformer.minifierConfig = {
 
 // Configuración para evitar errores de InternalBytecode.js
 config.transformer.unstable_allowRequireContext = true;
-config.resolver.unstable_enableSymlinks = false;
 
-// Configuración para resolver problemas de caché
-config.resetCache = true;
+// Workaround para iceberg-js removido - se crea el archivo faltante manualmente
 
 module.exports = config;
 

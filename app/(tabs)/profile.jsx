@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View, TouchableOpacity } from 'react-native';
 import { ActivityIndicator, Button, Card, Text, TextInput, Title } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/stores/authStore';
 
 export default function ProfileScreen() {
   const { user, logout, refreshUser } = useAuthStore();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState({
     full_name: '',
@@ -135,6 +138,28 @@ export default function ProfileScreen() {
           </Card.Content>
         </Card>
 
+        <Card style={styles.configCard}>
+          <Card.Content>
+            <Text style={styles.sectionTitle}>Configuración</Text>
+            
+            <TouchableOpacity
+              style={styles.settingItem}
+              onPress={() => router.push('/geo-alerts-settings')}
+            >
+              <View style={styles.settingIconContainer}>
+                <Ionicons name="location" size={24} color="#007AFF" />
+              </View>
+              <View style={styles.settingContent}>
+                <Text style={styles.settingTitle}>Alertas Geográficas</Text>
+                <Text style={styles.settingSubtitle}>
+                  Recibe notificaciones de mascotas cerca de ti
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+          </Card.Content>
+        </Card>
+
         <Card style={styles.actionsCard}>
           <Card.Content>
             <Text style={styles.sectionTitle}>Acciones</Text>
@@ -193,6 +218,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     elevation: 2,
   },
+  configCard: {
+    marginBottom: 16,
+    elevation: 2,
+  },
   actionsCard: {
     marginBottom: 16,
     elevation: 2,
@@ -217,6 +246,34 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     marginTop: 8,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  settingIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F0F9FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  settingContent: {
+    flex: 1,
+  },
+  settingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  settingSubtitle: {
+    fontSize: 13,
+    color: '#666',
   },
 });
 

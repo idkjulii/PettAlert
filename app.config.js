@@ -66,7 +66,8 @@ export default {
       appVersion: process.env.EXPO_PUBLIC_APP_VERSION || "1.0.0",
       backendUrl:
         process.env.EXPO_PUBLIC_BACKEND_URL ||
-        "https://drill-raleigh-exercise-occurred.trycloudflare.com",
+        process.env.EXPO_PUBLIC_TUNNEL_URL ||
+        null, // Debe configurarse en eas.json o .env
       
       // Variables de entorno para mapas
       googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "",
@@ -75,6 +76,14 @@ export default {
       eas: {
         projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID || "6e590065-3e19-4855-8a01-c7966333cc89"
       }
+    },
+    // Configuración de EAS Update (Over-The-Air Updates)
+    updates: {
+      url: `https://u.expo.dev/${process.env.EXPO_PUBLIC_EAS_PROJECT_ID || "6e590065-3e19-4855-8a01-c7966333cc89"}`
+    },
+    // Runtime version para controlar qué builds reciben qué actualizaciones
+    runtimeVersion: {
+      policy: "appVersion" // Usa la versión de la app (1.0.0) como runtime version
     }
   }
 };

@@ -1210,8 +1210,16 @@ const messageService = {
   },
 
   subscribeToMessages: (conversationId, { onInsert, onUpdate } = {}) => {
+    if (!conversationId) {
+      console.warn('⚠️ No se puede suscribir: conversationId es null');
+      return null;
+    }
+
+    const channelName = `messages:${conversationId}`;
+    console.log('🔔 Suscribiéndose a mensajes en tiempo real:', channelName);
+
     const channel = supabase
-      .channel(`messages:${conversationId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -1221,6 +1229,7 @@ const messageService = {
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
+          console.log('📨 Nuevo mensaje recibido (INSERT):', payload.new);
           onInsert?.(payload.new, payload);
         }
       )
@@ -1233,10 +1242,22 @@ const messageService = {
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
+          console.log('📝 Mensaje actualizado (UPDATE):', payload.new);
           onUpdate?.(payload.new, payload);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`🔔 Estado de suscripción [${channelName}]:`, status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Suscripción activa para mensajes en tiempo real');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Error en el canal de suscripción');
+        } else if (status === 'TIMED_OUT') {
+          console.warn('⏱️ Suscripción expiró, reintentando...');
+        } else if (status === 'CLOSED') {
+          console.warn('🔴 Canal cerrado');
+        }
+      });
 
     return channel;
   },
