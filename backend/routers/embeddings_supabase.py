@@ -126,7 +126,7 @@ async def search_image(
             
             results.append({
                 "report_id": report["id"],
-                "score_clip": float(similarity),
+                "similarity_score": float(similarity),
                 "species": report.get("species"),
                 "color": report.get("color"),
                 "photo": (report.get("photos") or [None])[0] if isinstance(report.get("photos"), list) else None,
@@ -134,7 +134,7 @@ async def search_image(
             })
         
         # Ordenar por similitud y tomar top_k
-        results.sort(key=lambda x: x["score_clip"], reverse=True)
+        results.sort(key=lambda x: x["similarity_score"], reverse=True)
         results = results[:top_k]
         
         # Guardar top-1 en matches si hay resultados
@@ -144,7 +144,7 @@ async def search_image(
                 sb.table("matches").insert({
                     "lost_report_id": lost_id,
                     "found_report_id": top1["report_id"],
-                    "similarity_score": round(top1["score_clip"], 4),
+                    "similarity_score": round(top1["similarity_score"], 4),
                     "matched_by": "ai_visual",  # Usa embeddings de imágenes (MegaDescriptor)
                     "status": "pending"
                 }).execute()

@@ -1,7 +1,7 @@
-# 🚨 SOLUCIÓN AL CRASH DE "Buscar Coincidencias (CLIP)"
+# 🚨 SOLUCIÓN AL CRASH DE "Buscar por Similitud Visual"
 
 ## Problema Identificado
-La aplicación se cierra cuando presionas "Buscar Coincidencias (CLIP)" porque:
+La aplicación se cierra cuando presionas "Buscar por Similitud Visual" porque:
 
 1. **Backend no está ejecutándose** - El servidor Python no está corriendo
 2. **URLs incorrectas** - Las IPs hardcodeadas no coinciden con tu red
@@ -68,7 +68,7 @@ Deberías ver:
 2. Abre la app en Expo Go
 3. Ve a la pantalla de búsqueda IA
 4. Selecciona una imagen
-5. Presiona "Buscar Coincidencias (CLIP)"
+5. Presiona "Buscar por Similitud Visual"
 
 ## 🔧 Cambios Realizados
 
@@ -123,5 +123,5 @@ Si usas Expo Go, asegúrate de que:
 Después de seguir estos pasos:
 - ✅ La app NO se cerrará
 - ✅ Verás mensajes de error claros si hay problemas
-- ✅ La búsqueda CLIP funcionará correctamente
+- ✅ La búsqueda por similitud visual funcionará correctamente
 - ✅ Podrás cambiar la IP fácilmente cuando cambies de red

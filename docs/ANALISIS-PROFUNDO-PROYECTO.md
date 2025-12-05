@@ -13,7 +13,7 @@
 ### Propósito Principal
 Facilitar la recuperación de mascotas perdidas mediante:
 - Reportes geolocalizados de mascotas perdidas/encontradas
-- Búsqueda inteligente por similitud visual usando embeddings CLIP
+- Búsqueda inteligente por similitud visual usando embeddings MegaDescriptor
 - Sistema de matching automático entre reportes
 - Mensajería en tiempo real entre usuarios
 - Gestión completa de salud veterinaria de mascotas
@@ -335,11 +335,12 @@ Usuario B recibe notificación push
    - Generación asíncrona en background tasks
    - Cache de embeddings (no se regeneran si ya existen)
 
-### Análisis de Imágenes (Google Vision API)
+### Análisis de Imágenes (MegaDescriptor Embeddings)
 
-- **Etiquetas**: Detección de objetos, animales, características
-- **Colores**: Colores dominantes en imagen
-- **Almacenamiento**: JSONB en columna `reports.labels`
+- **Embeddings Vectoriales**: Vectores de 2048 dimensiones generados con MegaDescriptor
+- **Búsqueda por Similitud**: Usa pgvector para búsquedas k-NN eficientes
+- **Almacenamiento**: Vector en columna `reports.embedding` (tipo `vector(2048)`)
+- **Índice HNSW**: Optimizado para búsquedas rápidas de similitud
 
 ---
 

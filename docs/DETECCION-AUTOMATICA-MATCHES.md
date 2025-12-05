@@ -13,48 +13,35 @@ Cuando un usuario crea un reporte con fotos:
 ```
 1. Usuario crea reporte → Backend recibe datos
 2. Backend guarda reporte en Supabase
-3. Backend genera embedding automáticamente (OpenCLIP)
-4. Backend envía reporte a n8n con embedding incluido
+3. Backend genera embedding automáticamente (MegaDescriptor)
+4. Backend busca coincidencias automáticamente usando el embedding
+5. Backend guarda matches encontrados en la tabla matches
 ```
 
-### 2. Procesamiento en n8n
+### 2. Procesamiento Automático de Matches
 
-El flujo de n8n procesa el reporte:
+El backend procesa todo localmente:
 
 ```
-1. n8n recibe webhook con:
+1. Backend genera embedding con MegaDescriptor:
    - report_id
    - image_url
-   - embedding (vector de 512 dimensiones)
+   - embedding (vector de 2048 dimensiones)
    - report_data (type, species, location)
 
-2. n8n descarga y analiza la imagen:
-   - Google Vision para labels y colores
-   - Detección de especie
+2. Backend busca coincidencias automáticamente:
+   - Usa función find_and_save_matches()
+   - Busca reportes del tipo opuesto (lost ↔ found)
+   - Filtra por especie si está disponible
+   - Calcula similitud usando embeddings
+   - Retorna matches con similitud >= threshold (default: 0.1)
 
-3. Si hay embedding, n8n busca coincidencias:
-   - Llama a Supabase RPC: search_similar_reports
-   - Filtra por tipo opuesto (lost ↔ found)
-   - Filtra por especie
-   - Retorna matches con similitud >= 0.7
-
-4. n8n retorna resultado al backend:
-   - Labels y colores detectados
-   - Matches encontrados (si los hay)
-```
-
-### 3. Procesamiento de Matches en Backend
-
-El backend recibe los resultados de n8n:
-
-```
-1. Backend recibe respuesta en /n8n/process-result
-2. Actualiza el reporte con labels y colores
-3. Procesa matches encontrados:
+3. Backend guarda matches encontrados:
    - Guarda en tabla matches
    - Crea relación lost_report_id ↔ found_report_id
    - Marca como "pending"
    - Evita duplicados
+   - Usa matched_by: "ai_visual"
 ```
 
 ### 4. Notificación al Usuario
@@ -90,10 +77,10 @@ Content-Type: application/json
 - Se envía a n8n en background
 - n8n busca coincidencias automáticamente
 
-### Procesar Resultado de n8n
+### Buscar Matches para un Reporte
 
 ```http
-POST /n8n/process-result
+POST /direct-matches/find/{report_id}
 Content-Type: application/json
 
 {
@@ -138,7 +125,7 @@ GET /matches/pending?report_id={report_id}&status=pending
     {
       "match_id": "uuid",
       "similarity_score": 0.85,
-      "matched_by": "n8n_auto_search",
+      "matched_by": "ai_visual",
       "status": "pending",
       "created_at": "2024-...",
       "lost_report": {...},
@@ -166,19 +153,19 @@ CREATE TABLE matches (
   lost_report_id UUID REFERENCES reports(id),
   found_report_id UUID REFERENCES reports(id),
   similarity_score FLOAT,
-  matched_by TEXT,  -- 'n8n_auto_search', 'manual', etc.
+  matched_by TEXT,  -- 'ai_visual', 'ai_text', 'manual', etc.
   status TEXT,      -- 'pending', 'accepted', 'rejected'
   created_at TIMESTAMP
 );
 ```
 
-### Payload a n8n
+### Procesamiento Interno
 
 ```json
 {
   "report_id": "uuid",
   "image_url": "https://...",
-  "embedding": [0.123, 0.456, ...],  // 512 dimensiones
+  "embedding": [0.123, 0.456, ...],  // 2048 dimensiones (MegaDescriptor)
   "report_data": {
     "type": "lost",
     "species": "dog",
@@ -187,7 +174,7 @@ CREATE TABLE matches (
 }
 ```
 
-### Respuesta de n8n
+### Resultado del Procesamiento
 
 ```json
 {
@@ -216,32 +203,23 @@ CREATE TABLE matches (
 }
 ```
 
-## Configuración de n8n
+## Configuración del Backend
 
-El flujo de n8n debe:
+El backend procesa automáticamente:
 
-1. **Recibir webhook** con embedding
-2. **Analizar imagen** con Google Vision
-3. **Buscar coincidencias** si hay embedding:
-   ```javascript
-   // En n8n, llamar a Supabase RPC
-   POST https://{supabase_url}/rest/v1/rpc/search_similar_reports
-   {
-     "query_embedding": {{ $json.body.embedding }},
-     "match_threshold": 0.7,
-     "match_count": 10,
-     "filter_species": "{{ $json.body.report_data?.species }}",
-     "filter_type": "{{ $json.body.report_data?.type === 'lost' ? 'found' : 'lost' }}"
-   }
+1. **Generar embedding** con MegaDescriptor cuando se crea un reporte
+2. **Buscar coincidencias** automáticamente usando el embedding:
+   ```python
+   # En el backend, función find_and_save_matches()
+   # Busca reportes del tipo opuesto con embeddings
+   # Calcula similitud usando numpy
+   # Guarda matches en la tabla matches
    ```
-4. **Retornar resultado** al backend:
-   ```javascript
-   POST https://{backend_url}/n8n/process-result
-   {
-     "report_id": "...",
-     "analysis": {...},
-     "matches": {...}
-   }
+3. **Guardar matches** automáticamente:
+   ```python
+   # El backend guarda matches directamente en Supabase
+   # Usa matched_by: "ai_visual"
+   # Estado inicial: "pending"
    ```
 
 ## Umbrales y Configuración
@@ -255,9 +233,9 @@ El flujo de n8n debe:
 
 1. **Automático**: No requiere intervención manual
 2. **Rápido**: Búsqueda por embeddings es muy eficiente
-3. **Preciso**: Usa similitud coseno de vectores de 512 dimensiones
+3. **Preciso**: Usa similitud coseno de vectores de 2048 dimensiones (MegaDescriptor)
 4. **Escalable**: Funciona con miles de reportes
-5. **Inteligente**: Combina embeddings con análisis de Google Vision
+5. **Inteligente**: Usa MegaDescriptor especializado en reconocimiento de animales
 
 ## Próximos Pasos
 

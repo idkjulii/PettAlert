@@ -25,36 +25,25 @@ print("=" * 70)
 
 # Verificar variables de entorno
 generate_locally_raw = os.getenv("GENERATE_EMBEDDINGS_LOCALLY")
-auto_send_n8n_raw = os.getenv("AUTO_SEND_REPORTS_TO_N8N")
 
 print(f"\n📊 Valores RAW del .env:")
 print(f"   GENERATE_EMBEDDINGS_LOCALLY = '{generate_locally_raw}'")
-print(f"   AUTO_SEND_REPORTS_TO_N8N = '{auto_send_n8n_raw}'")
 
 # Simular la lógica del código
 GENERATE_EMBEDDINGS_LOCALLY = (
     os.getenv("GENERATE_EMBEDDINGS_LOCALLY", "false").lower() in ("1", "true", "yes")
 )
-AUTO_SEND_REPORTS_TO_N8N = (
-    os.getenv("AUTO_SEND_REPORTS_TO_N8N", "true").lower() in ("1", "true", "yes")
-)
 
 print(f"\n🔧 Valores PROCESADOS (después de la lógica):")
 print(f"   GENERATE_EMBEDDINGS_LOCALLY = {GENERATE_EMBEDDINGS_LOCALLY}")
-print(f"   AUTO_SEND_REPORTS_TO_N8N = {AUTO_SEND_REPORTS_TO_N8N}")
 
 print(f"\n📝 Interpretación:")
 if GENERATE_EMBEDDINGS_LOCALLY:
-    print("   ✅ Los embeddings SÍ se generarán localmente")
+    print("   ✅ Los embeddings SÍ se generarán localmente con MegaDescriptor")
 else:
     print("   ❌ Los embeddings NO se generarán localmente")
     print("   💡 Solución: Asegúrate que .env tenga:")
     print("      GENERATE_EMBEDDINGS_LOCALLY=true")
-
-if AUTO_SEND_REPORTS_TO_N8N:
-    print("   ⚠️  Los reportes SÍ se enviarán a N8N (redundante)")
-else:
-    print("   ✅ Los reportes NO se enviarán a N8N")
 
 print("\n" + "=" * 70)
 

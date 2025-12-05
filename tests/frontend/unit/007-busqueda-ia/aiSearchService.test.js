@@ -4,7 +4,7 @@
  * Basado en: specs/007-busqueda-ia/spec.md
  * Principio X: Pruebas unitarias para cada funcionalidad
  * 
- * Nota: La búsqueda IA se realiza mediante un servicio externo conectado vía n8n
+ * Nota: La búsqueda IA se realiza usando MegaDescriptor localmente
  */
 
 import aiSearchService from '../../../../src/services/aiSearch';
@@ -113,7 +113,7 @@ describe('Servicio de Búsqueda IA - FR-002: Buscar coincidencias por imagen', (
       },
     ];
 
-    // La búsqueda se realiza vía n8n (servicio externo)
+    // La búsqueda se realiza usando MegaDescriptor localmente
     apiService.aiSearch.mockResolvedValue({
       data: { results: mockResults },
       error: null,
@@ -174,7 +174,7 @@ describe('Servicio de Búsqueda IA - FR-002: Buscar coincidencias por imagen', (
     expect(result.data.results).toEqual([]);
   });
 
-  test('debe manejar errores del servicio externo (n8n)', async () => {
+  test('debe manejar errores del servicio de búsqueda', async () => {
     apiService.aiSearch.mockResolvedValue({
       data: null,
       error: { message: 'Servicio de IA no disponible' },
@@ -192,12 +192,12 @@ describe('Servicio de Búsqueda IA - FR-002: Buscar coincidencias por imagen', (
   });
 });
 
-describe('Servicio de Búsqueda IA - FR-003: Buscar con CLIP', () => {
-  test('debe buscar coincidencias usando embeddings CLIP', async () => {
+describe('Servicio de Búsqueda IA - FR-003: Buscar por Similitud Visual', () => {
+  test('debe buscar coincidencias usando embeddings de MegaDescriptor', async () => {
     const mockResults = [
       {
         id: 'report-1',
-        clip_similarity: 0.88,
+        similarity_score: 0.88,
         photo_url: 'https://example.com/photo1.jpg',
         species: 'dog',
         color: 'Dorado',
@@ -218,7 +218,7 @@ describe('Servicio de Búsqueda IA - FR-003: Buscar con CLIP', () => {
     });
 
     expect(result.data.results).toEqual(mockResults);
-    expect(result.data.results[0].clip_similarity).toBeDefined();
+    expect(result.data.results[0].similarity_score).toBeDefined();
   });
 
   test('debe respetar filtros de búsqueda (radio, tipo)', async () => {

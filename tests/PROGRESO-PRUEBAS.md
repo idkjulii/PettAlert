@@ -60,7 +60,7 @@
 3. **API de Búsqueda IA** - Pendiente
 4. **API de RAG Search** - Pendiente
 5. **API de Embeddings** - Pendiente
-6. **Integración n8n** - Pendiente
+6. **Integración backend** - Sistema procesa todo localmente (sin N8N)
 
 ## Patrón de Pruebas
 
@@ -119,7 +119,7 @@ pytest -v
 ## Notas
 
 - Las pruebas están diseñadas para ser independientes y ejecutables en cualquier orden
-- Se usan mocks para dependencias externas (Supabase, n8n, servicios de IA)
+- Se usan mocks para dependencias externas (Supabase, servicios de embeddings)
 - Cada prueba valida requisitos funcionales específicos de las especificaciones
 - Los escenarios de aceptación de las historias de usuario se convierten en casos de prueba
 

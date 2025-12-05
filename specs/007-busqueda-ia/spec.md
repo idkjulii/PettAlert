@@ -3,7 +3,7 @@
 **Feature Branch**: `007-busqueda-ia`  
 **Created**: 2025-10-05  
 **Status**: Implementado (Documentación Retroactiva)  
-**Input**: Feature existente - Búsqueda de coincidencias usando análisis de imágenes mediante servicio de IA externo conectado vía n8n (orquestador de workflows)
+**Input**: Feature existente - Búsqueda de coincidencias usando análisis de imágenes mediante MegaDescriptor (procesamiento local)
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -46,24 +46,24 @@ Como usuario con una foto de mascota, quiero buscar coincidencias usando el aná
 
 ---
 
-### User Story 3 - Buscar Coincidencias con CLIP (Similitud Visual) (Priority: P1)
+### User Story 3 - Buscar Coincidencias por Similitud Visual (Priority: P1)
 
-Como usuario con una foto de mascota, quiero buscar coincidencias usando embeddings CLIP para encontrar reportes visualmente similares basados en similitud semántica de imágenes.
+Como usuario con una foto de mascota, quiero buscar coincidencias usando embeddings de MegaDescriptor para encontrar reportes visualmente similares basados en similitud semántica de imágenes.
 
-**Why this priority**: Proporciona un método alternativo y más avanzado de búsqueda visual que puede encontrar coincidencias que el análisis de etiquetas podría pasar por alto.
+**Why this priority**: Proporciona un método avanzado de búsqueda visual que puede encontrar coincidencias que el análisis de etiquetas podría pasar por alto.
 
-**Independent Test**: Puede ser testeado completamente subiendo una imagen y buscando con CLIP, verificando que se muestran resultados con scores de similitud visual.
+**Independent Test**: Puede ser testeado completamente subiendo una imagen y buscando por similitud visual, verificando que se muestran resultados con scores de similitud.
 
 **Acceptance Scenarios**:
 
-1. **Given** un usuario con imagen seleccionada, **When** toca "Buscar Coincidencias (CLIP)", **Then** se inicia la búsqueda por similitud visual usando embeddings
-2. **Given** un usuario que busca con CLIP, **When** se encuentran resultados, **Then** se muestran reportes con:
-   - Score de similitud CLIP (porcentaje)
+1. **Given** un usuario con imagen seleccionada, **When** toca "Buscar por Similitud Visual", **Then** se inicia la búsqueda por similitud visual usando embeddings
+2. **Given** un usuario que busca por similitud visual, **When** se encuentran resultados, **Then** se muestran reportes con:
+   - Score de similitud (porcentaje)
    - Foto del reporte candidato
    - Información básica (especie, color)
    - Etiquetas si están disponibles
-3. **Given** un usuario que busca con CLIP, **When** se configuran filtros (radio, tipo), **Then** la búsqueda respeta esos filtros
-4. **Given** un usuario que ve resultados CLIP, **When** toca un resultado, **Then** navega a los detalles completos de ese reporte
+3. **Given** un usuario que busca por similitud visual, **When** se configuran filtros (radio, tipo), **Then** la búsqueda respeta esos filtros
+4. **Given** un usuario que ve resultados de similitud visual, **When** toca un resultado, **Then** navega a los detalles completos de ese reporte
 
 ---
 
@@ -88,9 +88,9 @@ Como usuario, quiero configurar el tipo de búsqueda (perdidas/encontradas/ambas
 
 - ¿Qué sucede cuando la imagen subida no contiene una mascota?
 - ¿Cómo maneja el sistema cuando el análisis de IA falla (servicio externo no disponible)?
-- ¿Qué ocurre si n8n no puede comunicarse con el servicio de IA externo?
+- ¿Qué ocurre si el servicio de embeddings no está disponible?
 - ¿Qué ocurre si no hay reportes con embeddings en la base de datos?
-- ¿Cómo se maneja cuando la búsqueda CLIP tarda mucho tiempo (procesamiento asíncrono vía n8n)?
+- ¿Cómo se maneja cuando la búsqueda por similitud visual tarda mucho tiempo?
 - ¿Qué sucede cuando el servicio de IA externo está temporalmente no disponible?
 - ¿Qué sucede si el usuario no tiene ubicación GPS para el filtro geográfico?
 - ¿Cómo se maneja cuando hay muchos resultados (más de 50)?
@@ -102,11 +102,11 @@ Como usuario, quiero configurar el tipo de búsqueda (perdidas/encontradas/ambas
 - **FR-001**: El sistema DEBE permitir seleccionar imágenes desde la galería del dispositivo
 - **FR-002**: El sistema DEBE permitir tomar fotos con la cámara del dispositivo
 - **FR-003**: El sistema DEBE mostrar la imagen seleccionada en el formulario
-- **FR-004**: El sistema DEBE permitir analizar imágenes mediante servicio de IA externo (conectado vía n8n)
+- **FR-004**: El sistema DEBE permitir analizar imágenes mediante MegaDescriptor (procesamiento local)
 - **FR-005**: El sistema DEBE mostrar etiquetas detectadas con sus scores de confianza
 - **FR-006**: El sistema DEBE mostrar colores dominantes detectados en la imagen
 - **FR-007**: El sistema DEBE permitir buscar coincidencias usando el análisis de IA (etiquetas y colores) obtenido del servicio externo
-- **FR-008**: El sistema DEBE permitir buscar coincidencias usando embeddings CLIP (similitud visual) generados por el servicio de IA externo
+- **FR-008**: El sistema DEBE permitir buscar coincidencias usando embeddings de MegaDescriptor (similitud visual)
 - **FR-009**: El sistema DEBE mostrar resultados de búsqueda con scores de similitud
 - **FR-010**: El sistema DEBE mostrar para cada resultado:
   - Score de similitud (porcentaje)
@@ -118,29 +118,29 @@ Como usuario, quiero configurar el tipo de búsqueda (perdidas/encontradas/ambas
 - **FR-013**: El sistema DEBE aplicar filtros geográficos basados en la ubicación del usuario
 - **FR-014**: El sistema DEBE permitir navegar a detalles completos de reportes encontrados
 - **FR-015**: El sistema DEBE mostrar indicadores de carga durante análisis y búsquedas
-- **FR-016**: El sistema DEBE manejar la comunicación con n8n para orquestar el procesamiento con el servicio de IA externo
-- **FR-017**: El sistema DEBE manejar errores de conexión con n8n o el servicio de IA externo mostrando mensajes apropiados
+- **FR-016**: El sistema DEBE manejar la generación de embeddings con MegaDescriptor
+- **FR-017**: El sistema DEBE manejar errores de procesamiento de embeddings mostrando mensajes apropiados
 - **FR-018**: El sistema DEBE manejar errores del servidor mostrando mensajes específicos
 - **FR-019**: El sistema DEBE mostrar mensajes cuando no se encuentran resultados
-- **FR-020**: El sistema DEBE manejar casos cuando n8n o el servicio de IA externo no están disponibles
+- **FR-020**: El sistema DEBE manejar casos cuando el servicio de embeddings no está disponible
 
 ### Key Entities *(include if feature involves data)*
 
-- **Análisis de Imagen**: Representa el resultado del análisis de una imagen realizado por el servicio de IA externo (conectado vía n8n), incluyendo etiquetas detectadas, scores de confianza y colores dominantes
+- **Análisis de Imagen**: Representa el resultado del análisis de una imagen realizado por MegaDescriptor, incluyendo embeddings vectoriales y metadatos
 - **Resultado de Búsqueda IA**: Representa un reporte candidato encontrado usando análisis de etiquetas y colores obtenidos del servicio de IA externo, con scores de similitud visual, similitud de colores, distancia y confianza total
-- **Resultado de Búsqueda CLIP**: Representa un reporte candidato encontrado usando embeddings CLIP generados por el servicio de IA externo, con score de similitud visual y metadatos del reporte
-- **Integración n8n**: Representa el orquestador que conecta el sistema principal con el servicio de IA externo, manejando el flujo de datos y procesamiento asíncrono
+- **Resultado de Búsqueda por Similitud Visual**: Representa un reporte candidato encontrado usando embeddings de MegaDescriptor, con score de similitud visual y metadatos del reporte
+- **Sistema de Embeddings**: Representa el procesamiento local de imágenes usando MegaDescriptor para generar embeddings vectoriales
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: El análisis de imagen se completa en menos de 10 segundos en el 90% de los casos (incluyendo comunicación con servicio externo vía n8n)
-- **SC-002**: La búsqueda con IA se completa en menos de 15 segundos en el 90% de los casos (incluyendo procesamiento asíncrono vía n8n)
-- **SC-003**: La búsqueda con CLIP se completa en menos de 20 segundos en el 90% de los casos (incluyendo generación de embeddings por servicio externo vía n8n)
+- **SC-001**: El análisis de imagen se completa en menos de 10 segundos en el 90% de los casos (generación de embedding con MegaDescriptor)
+- **SC-002**: La búsqueda con IA se completa en menos de 15 segundos en el 90% de los casos (búsqueda vectorial en Supabase)
+- **SC-003**: La búsqueda por similitud visual se completa en menos de 20 segundos en el 90% de los casos (incluyendo generación de embeddings con MegaDescriptor)
 - **SC-004**: El 80% de las búsquedas con imágenes válidas de mascotas retornan al menos un resultado relevante cuando existen reportes compatibles
 - **SC-005**: Los usuarios pueden completar todo el flujo (seleccionar imagen, analizar, buscar) en menos de 2 minutos
-- **SC-006**: El sistema maneja correctamente errores de conexión con n8n o el servicio de IA externo mostrando mensajes útiles en el 100% de los casos
+- **SC-006**: El sistema maneja correctamente errores de procesamiento de embeddings mostrando mensajes útiles en el 100% de los casos
 - **SC-007**: Los resultados de búsqueda muestran scores de similitud con precisión suficiente para que usuarios identifiquen coincidencias relevantes
 - **SC-008**: El sistema maneja correctamente casos cuando el servicio de IA externo está temporalmente no disponible, informando al usuario apropiadamente
 

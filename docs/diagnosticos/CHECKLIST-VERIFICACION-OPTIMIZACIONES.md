@@ -6,7 +6,7 @@ Basándome en los logs que proporcionaste, aquí está el estado:
 
 ### 🟢 Cloudflared (Túnel)
 - **Estado**: ✅ Activo
-- **URL**: `https://named-determine-liabilities-promote.trycloudflare.com`
+- **URL**: `https://received-investments-riders-cope.trycloudflare.com`
 - **Líneas 1-174**: Túnel funcionando correctamente
 
 ### 🟢 Uvicorn (Backend)
@@ -44,7 +44,7 @@ Basándome en los logs que proporcionaste, aquí está el estado:
 #### ✅ **Configuración Correcta:**
 ```
 🔧 [BACKEND CONFIG]
-   BACKEND_URL final: https://named-determine-liabilities-promote.trycloudflare.com
+   BACKEND_URL final: https://received-investments-riders-cope.trycloudflare.com
 ```
 
 #### ❌ **Errores a Evitar:**
@@ -75,13 +75,13 @@ ERR Connection timeout
 
 ### Test 1: Verificar que el Backend Responde
 ```bash
-curl https://named-determine-liabilities-promote.trycloudflare.com/health
+curl https://received-investments-riders-cope.trycloudflare.com/health
 ```
 **Esperado:** `{"status":"ok","message":"PetAlert API activa","supabase":"conectado"}`
 
 ### Test 2: Verificar Embeddings
 ```bash
-curl -X GET https://named-determine-liabilities-promote.trycloudflare.com/fix-embeddings/check-missing
+curl -X GET https://received-investments-riders-cope.trycloudflare.com/fix-embeddings/check-missing
 ```
 **Esperado:** Debe mostrar estadísticas de embeddings
 
@@ -169,7 +169,7 @@ INFO:     127.0.0.1:XXXXX - "POST /embeddings/search_image?top_k=10 HTTP/1.1" 20
 Busca esta secuencia:
 
 ```
-🌐 API Request: POST https://named-determine-liabilities-promote.trycloudflare.com/embeddings/search_image
+🌐 API Request: POST https://received-investments-riders-cope.trycloudflare.com/embeddings/search_image
 🔗 URL completa: https://...
 ✅ API Response: {...}
 ```

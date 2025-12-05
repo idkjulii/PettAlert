@@ -55,7 +55,7 @@ tests/
 - ✅ **API de Búsqueda IA** - 4 pruebas pasando (test_ai_search_api.py)
 - ✅ **API de RAG Search** - 3 pruebas pasando (test_rag_search_api.py)
 - ✅ **API de Embeddings** - 3 pruebas pasando (test_embeddings_api.py)
-- ✅ **Integración n8n** - 5 pruebas pasando (test_n8n_integration.py)
+- ✅ **Integración backend** - Sistema procesa todo localmente
 
 **Total Backend**: 32 pruebas pasando ✅
 

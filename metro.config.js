@@ -28,8 +28,6 @@ config.transformer.minifierConfig = {
 // Configuración para evitar errores de InternalBytecode.js
 config.transformer.unstable_allowRequireContext = true;
 
-// Workaround para iceberg-js removido - se crea el archivo faltante manualmente
-
 module.exports = config;
 
 

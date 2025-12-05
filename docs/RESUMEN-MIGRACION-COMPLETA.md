@@ -188,38 +188,21 @@ LIMIT 5;
 
 ## 🛠️ Mantenimiento Post-Migración
 
-### Opciones con N8N
+### Estado Actual
 
-#### Opción 1: Eliminar Completamente ❌
-Si no necesitas N8N para nada más:
+N8N ya no se usa. El backend procesa todo localmente:
 
 ```python
-# Puedes eliminar estos archivos:
-backend/routers/n8n_integration.py  # (387 líneas)
+# El backend genera embeddings y busca matches automáticamente
+# No hay dependencias externas
+# Todo se procesa en el mismo servidor
 ```
-
-Y remover import en `backend/routers/reports.py`:
-```python
-from .n8n_integration import send_to_n8n_webhook  # ← Eliminar
-```
-
-#### Opción 2: Mantener para Batch (Recomendado) ✅
-Mantener N8N disponible para procesamiento manual batch:
-
-```bash
-# Los endpoints siguen disponibles para uso manual:
-POST /n8n/send-to-webhook       # Enviar reporte específico
-POST /n8n/batch-process         # Procesar múltiples reportes
-GET  /n8n/reports/with-images   # Obtener reportes con imágenes
-```
-
-Útil si necesitas reprocesar reportes antiguos ocasionalmente.
 
 ---
 
 ## 📝 Documentación Creada
 
-1. **`MIGRACION-N8N-A-BACKEND.md`** - Guía completa de migración arquitectónica
+1. **Migración completada** - Sistema 100% local con MegaDescriptor
 2. **`ESTADO-PROYECTO.md`** - Estado actual del proyecto (actualizado)
 3. **`VERIFICACION-MIGRACION.md`** - Checklist de verificación detallada
 4. **`SIGUIENTE-PASO.md`** - Guía rápida de próximos pasos
@@ -280,7 +263,7 @@ FIN (2-3s total)
 
 ## 🎯 Próximos Pasos Inmediatos
 
-1. **Ahora mismo:** Cambiar `AUTO_SEND_REPORTS_TO_N8N=false` 
+1. **Sistema ya migrado:** Todo funciona localmente 
 2. **En 2 minutos:** Regenerar embeddings (script)
 3. **En 5 minutos:** Crear reporte de prueba
 4. **En 10 minutos:** Validar que todo funciona

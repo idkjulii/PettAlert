@@ -2,7 +2,7 @@
 
 ## ❌ Error
 ```
-API Error: https://named-determine-liabilities-promote.trycloudflare.com/reports/ 
+API Error: https://received-investments-riders-cope.trycloudflare.com/reports/ 
 TypeError: Network request failed
 ```
 

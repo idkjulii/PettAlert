@@ -34,7 +34,7 @@ async def index_report_embedding(report_id: str, file: UploadFile = File(...)):
         """, (vec, report_id))
         if cur.rowcount == 0:
             raise HTTPException(404, "report_id no encontrado")
-    return {"status": "ok", "report_id": report_id, "dims": 512}
+    return {"status": "ok", "report_id": report_id, "dims": len(vec)}
 
 @router.post("/search_image")
 async def search_image(
@@ -52,7 +52,7 @@ async def search_image(
 
     base_sql = """
         select r.id,
-               (1 - (r.embedding <#> %(qvec)s)) as score_clip,
+               (1 - (r.embedding <#> %(qvec)s)) as similarity_score,
                r.species, r.color, r.photos, r.labels
          from public.reports r
     """
@@ -86,7 +86,7 @@ async def search_image(
         for rid, sim, species, color, photos, labels in cur.fetchall():
             results.append({
                 "report_id": rid,
-                "score_clip": float(sim) if sim is not None else None,
+                "similarity_score": float(sim) if sim is not None else None,
                 "species": species,
                 "color": color,
                 "photo": (photos or [None])[0] if isinstance(photos, list) else None,
@@ -97,7 +97,7 @@ async def search_image(
             cur.execute("""
                 insert into public.matches
                     (lost_report_id, found_report_id, similarity_score, matched_by, status)
-                values (%s::uuid, %s::uuid, %s, 'auto_clip', 'pending')
+                values (%s::uuid, %s::uuid, %s, 'ai_visual', 'pending')
             """, (lost_id if lost_id else None, top1["report_id"],
-                  round(top1["score_clip"], 4) if top1["score_clip"] is not None else None))
+                  round(top1["similarity_score"], 4) if top1["similarity_score"] is not None else None))
     return {"results": results}

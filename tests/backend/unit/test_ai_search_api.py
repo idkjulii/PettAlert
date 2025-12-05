@@ -43,29 +43,15 @@ class TestAISearchAPI:
             "colors": ["golden", "brown", "white"]
         }
 
-    @patch('routers.ai_search.vision.ImageAnnotatorClient')
-    def test_ai_search_success(self, mock_vision_client, mock_supabase):
-        """Test: Búsqueda IA debe encontrar coincidencias"""
-        # Mock de Google Vision
-        mock_vision = MagicMock()
-        mock_vision_client.return_value = mock_vision
-        
-        # Mock de respuesta de labels
-        mock_label = MagicMock()
-        mock_label.description = "dog"
-        mock_label.score = 0.95
-        mock_vision.label_detection.return_value.label_annotations = [mock_label]
-        mock_vision.label_detection.return_value.error.message = ""
-        
-        # Mock de respuesta de colores
-        mock_color = MagicMock()
-        mock_color.color.red = 255
-        mock_color.color.green = 200
-        mock_color.color.blue = 100
-        mock_vision.image_properties.return_value.image_properties_annotation.dominant_colors.colors = [mock_color]
-        mock_vision.image_properties.return_value.error.message = ""
+    @patch('routers.ai_search.image_bytes_to_vec')
+    def test_ai_search_success(self, mock_image_to_vec, mock_supabase):
+        """Test: Búsqueda IA debe encontrar coincidencias usando embeddings"""
+        # Mock de generación de embedding
+        import numpy as np
+        mock_embedding = np.array([0.1] * 2048)  # Embedding simulado
+        mock_image_to_vec.return_value = mock_embedding
 
-        # Mock de candidatos
+        # Mock de búsqueda por embedding (RPC)
         candidates = [
             {
                 "id": "report-1",
@@ -73,14 +59,17 @@ class TestAISearchAPI:
                 "status": "active",
                 "species": "dog",
                 "pet_name": "Max",
+                "similarity": 0.85,
                 "location": {
                     "type": "Point",
                     "coordinates": [-58.3816, -34.6037]
                 }
             }
         ]
-
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = candidates
+        
+        mock_rpc_result = MagicMock()
+        mock_rpc_result.data = candidates
+        mock_supabase.rpc.return_value.execute.return_value = mock_rpc_result
 
         # Crear archivo de prueba
         from io import BytesIO
@@ -92,8 +81,8 @@ class TestAISearchAPI:
             files={"file": ("test.jpg", test_file, "image/jpeg")}
         )
 
-        # Puede retornar 200 o 500 si hay problemas con Vision API
-        assert response.status_code in [200, 500, 502]
+        # Debe retornar 200 si la búsqueda es exitosa
+        assert response.status_code in [200, 500]
 
     def test_ai_search_health(self):
         """Test: Health check del servicio de búsqueda IA"""

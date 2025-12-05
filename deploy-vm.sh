@@ -29,10 +29,7 @@ if [ ! -f "backend/.env" ]; then
     exit 1
 fi
 
-if [ ! -f "backend/google-vision-key.json" ]; then
-    echo -e "${YELLOW}⚠️  Advertencia: backend/google-vision-key.json no encontrado${NC}"
-    echo "Si usas Google Vision API, asegúrate de tener tu archivo de credenciales"
-    echo "Continuando sin Google Vision..."
+# Google Vision ya no se usa - se eliminó en favor de MegaDescriptor embeddings
 fi
 
 # 3. Detener contenedores existentes

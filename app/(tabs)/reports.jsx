@@ -162,10 +162,10 @@ export default function ReportsScreen() {
     setMatchesForReport(report.id, null);
 
     try {
-      // Disparar reprocesamiento en n8n (en segundo plano)
+      // El backend procesa automáticamente los matches
       const triggerResult = await reportService.requestMatchesAnalysis(report.id);
       if (triggerResult?.error) {
-        console.warn('Error enviando reporte a n8n:', triggerResult.error);
+        console.warn('Error procesando reporte:', triggerResult.error);
       }
 
       // Intentar obtener coincidencias (polling corto)

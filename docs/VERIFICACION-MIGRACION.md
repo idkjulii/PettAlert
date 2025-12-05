@@ -102,15 +102,14 @@ SUPABASE_URL=https://tu-proyecto.supabase.co
 SUPABASE_SERVICE_KEY=tu-clave-service-key
 DATABASE_URL=postgresql://...
 
-# Google Vision (opcional)
-GOOGLE_APPLICATION_CREDENTIALS=/ruta/a/google-vision-key.json
+# Embeddings (MegaDescriptor se descarga automáticamente)
+GENERATE_EMBEDDINGS_LOCALLY=true
 
-# N8N (opcional)
-N8N_WEBHOOK_URL=https://tu-n8n.shop/webhook-test/...
+# N8N ya no se usa - el backend procesa todo localmente
 
 # Embeddings (IMPORTANTE)
 GENERATE_EMBEDDINGS_LOCALLY=true
-AUTO_SEND_REPORTS_TO_N8N=true
+# N8N ya no se usa - el backend procesa todo localmente
 ```
 
 ---

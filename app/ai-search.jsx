@@ -28,7 +28,7 @@ export default function AISearchScreen() {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
-  const [clipResults, setClipResults] = useState([]);
+  const [embeddingResults, setEmbeddingResults] = useState([]);
   const [searchType, setSearchType] = useState('both'); // 'lost', 'found', 'both'
   const [radius, setRadius] = useState(10); // km
 
@@ -197,18 +197,18 @@ export default function AISearchScreen() {
         radius // Usar el radio configurado en la UI
       );
       
-      setClipResults(data.results ?? []);
+      setEmbeddingResults(data.results ?? []);
       
       if (data.results && data.results.length > 0) {
         Alert.alert(
-          'Búsqueda CLIP completada',
+          'Búsqueda completada',
           `Encontramos ${data.results.length} coincidencias por similitud visual${location ? ` en ${radius}km` : ''}`
         );
       } else {
         Alert.alert('Sin resultados', 'No se encontraron coincidencias similares');
       }
     } catch (e) {
-      console.error('Error en búsqueda CLIP:', e);
+      console.error('Error en búsqueda por similitud:', e);
       
       // Manejo específico de errores de conexión
       if (e.message?.includes('Network request failed') || e.message?.includes('fetch')) {
@@ -234,7 +234,7 @@ export default function AISearchScreen() {
     router.push(`/report/${result.candidate.id}`);
   };
 
-  const handleClipResultPress = (result) => {
+  const handleEmbeddingResultPress = (result) => {
     // Navegar a detalles del reporte
     router.push(`/report/${result.report_id}`);
   };
@@ -280,21 +280,21 @@ export default function AISearchScreen() {
     );
   };
 
-  const renderClipResults = () => {
-    if (clipResults.length === 0) return null;
+  const renderEmbeddingResults = () => {
+    if (embeddingResults.length === 0) return null;
 
     return (
       <Card style={styles.card}>
         <Card.Content>
-          <Title style={styles.cardTitle}>🔍 Resultados CLIP (Similitud Visual)</Title>
+          <Title style={styles.cardTitle}>🔍 Resultados por Similitud Visual</Title>
           <Paragraph style={styles.resultsCount}>
-            {clipResults.length} coincidencia{clipResults.length !== 1 ? 's' : ''} encontrada{clipResults.length !== 1 ? 's' : ''}
+            {embeddingResults.length} coincidencia{embeddingResults.length !== 1 ? 's' : ''} encontrada{embeddingResults.length !== 1 ? 's' : ''}
           </Paragraph>
-          {clipResults.map((result, index) => (
+          {embeddingResults.map((result, index) => (
             <TouchableOpacity
               key={result.report_id || index}
               style={styles.resultItem}
-              onPress={() => handleClipResultPress(result)}
+              onPress={() => handleEmbeddingResultPress(result)}
             >
               <View style={styles.resultContent}>
                 <View style={styles.resultInfo}>
@@ -324,7 +324,7 @@ export default function AISearchScreen() {
                   )}
                   <View style={styles.scoreContainer}>
                     <Text style={styles.scoreText}>
-                      {Math.round((result.score_clip || 0) * 100)}%
+                      {Math.round((result.similarity_score || 0) * 100)}%
                     </Text>
                     <Text style={styles.scoreLabel}>Similitud</Text>
                   </View>
@@ -533,7 +533,7 @@ export default function AISearchScreen() {
                   style={[styles.actionButton, { backgroundColor: '#9C27B0' }]}
                   icon="eye"
                 >
-                  Buscar Coincidencias (CLIP)
+                  Buscar por Similitud Visual
                 </Button>
               </View>
             </Card.Content>
@@ -546,8 +546,8 @@ export default function AISearchScreen() {
         {/* Resultados de búsqueda */}
         {renderSearchResults()}
         
-        {/* Resultados de búsqueda CLIP */}
-        {renderClipResults()}
+        {/* Resultados de búsqueda por similitud visual */}
+        {renderEmbeddingResults()}
 
         {/* Información adicional */}
         <Card style={styles.infoCard}>

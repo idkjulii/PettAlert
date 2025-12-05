@@ -1,5 +1,5 @@
 """
-Router para búsqueda directa de coincidencias sin depender de n8n.
+Router para búsqueda directa de coincidencias usando embeddings.
 Usa los embeddings almacenados en Supabase para encontrar matches.
 """
 from fastapi import APIRouter, HTTPException, Query
@@ -31,7 +31,7 @@ async def find_matches_for_report(
 ):
     """
     Busca coincidencias para un reporte específico usando su embedding.
-    No depende de n8n, busca directamente en Supabase.
+    Busca directamente en Supabase usando búsqueda vectorial.
     """
     try:
         sb = _sb()

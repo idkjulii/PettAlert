@@ -171,7 +171,7 @@ Debe mostrar: `dimensiones = 1536`
 **`backend/.env`:**
 ```
 GENERATE_EMBEDDINGS_LOCALLY=true
-AUTO_SEND_REPORTS_TO_N8N=false
+# N8N ya no se usa - el backend procesa todo localmente
 ```
 
 **PostgreSQL:**

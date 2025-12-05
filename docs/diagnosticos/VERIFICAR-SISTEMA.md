@@ -4,7 +4,7 @@
 
 ### 🟢 Cloudflare Tunnel - ACTIVO
 ```
-✅ URL: https://named-determine-liabilities-promote.trycloudflare.com
+✅ URL: https://received-investments-riders-cope.trycloudflare.com
 ✅ Backend accesible a través del túnel
 ✅ Health check respondiendo correctamente
 ```
@@ -72,7 +72,7 @@ En tu celular/emulador:
 
 ### Test 1: Health Check ✅
 ```bash
-curl https://named-determine-liabilities-promote.trycloudflare.com/health
+curl https://received-investments-riders-cope.trycloudflare.com/health
 ```
 
 **Resultado esperado:**
@@ -86,7 +86,7 @@ curl https://named-determine-liabilities-promote.trycloudflare.com/health
 
 ### Test 2: Embeddings Status
 ```bash
-curl https://named-determine-liabilities-promote.trycloudflare.com/fix-embeddings/check-missing
+curl https://received-investments-riders-cope.trycloudflare.com/fix-embeddings/check-missing
 ```
 
 **Resultado esperado:**
@@ -174,13 +174,13 @@ curl https://named-determine-liabilities-promote.trycloudflare.com/fix-embedding
 **Al cargar la app:**
 ```
 🔧 [BACKEND CONFIG]
-   EXPO_PUBLIC_BACKEND_URL: https://named-determine-liabilities-promote.trycloudflare.com
-   BACKEND_URL final: https://named-determine-liabilities-promote.trycloudflare.com
+   EXPO_PUBLIC_BACKEND_URL: https://received-investments-riders-cope.trycloudflare.com
+   BACKEND_URL final: https://received-investments-riders-cope.trycloudflare.com
 ```
 
 **Durante búsquedas:**
 ```
-🌐 API Request: POST https://named-determine-liabilities-promote.trycloudflare.com/embeddings/search_image
+🌐 API Request: POST https://received-investments-riders-cope.trycloudflare.com/embeddings/search_image
 ✅ API Response: {...}
 ```
 

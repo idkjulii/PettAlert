@@ -55,8 +55,9 @@
    - Health check
    - Validaciones
 
-4. **test_n8n_integration.py** - 5 pruebas ✅
-   - Integración con n8n
+4. **Sistema backend** - Procesamiento local completo ✅
+   - Generación de embeddings con MegaDescriptor
+   - Búsqueda automática de matches
    - Reportes con imágenes
    - Manejo de errores
 

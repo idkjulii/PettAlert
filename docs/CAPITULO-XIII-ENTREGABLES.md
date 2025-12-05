@@ -12,7 +12,7 @@ El producto mínimo viable (MVP por sus siglas en inglés) de PetAlert incluye *
 
 La aplicación móvil es multiplataforma (iOS y Android) y permite a los usuarios registrarse, reportar mascotas perdidas o encontradas con geolocalización, visualizar reportes cercanos en un mapa interactivo, utilizar búsqueda inteligente por similitud visual mediante inteligencia artificial, comunicarse con otros usuarios a través de un sistema de mensajería en tiempo real, y gestionar sus mascotas registradas.
 
-El backend desplegado en Google Cloud Platform gestiona el procesamiento de imágenes mediante Google Cloud Vision API para análisis automático de características, genera embeddings vectoriales usando el modelo especializado MegaDescriptor-L-384, implementa un motor de búsqueda por similitud que encuentra mascotas visualmente similares, detecta automáticamente coincidencias entre reportes de pérdidas y hallazgos, y expone una API RESTful documentada con FastAPI.
+El backend desplegado en Google Cloud Platform gestiona el procesamiento de imágenes mediante el modelo MegaDescriptor-L-384 para generar embeddings vectoriales, implementa un motor de búsqueda por similitud que encuentra mascotas visualmente similares usando pgvector, detecta automáticamente coincidencias entre reportes de pérdidas y hallazgos, y expone una API RESTful documentada con FastAPI.
 
 La base de datos utiliza PostgreSQL 15 en Supabase con la extensión pgvector que permite almacenar y buscar vectores de alta dimensionalidad (1536 dimensiones), índices HNSW optimizados para búsquedas de vecinos más cercanos, Row Level Security (RLS) para proteger datos de usuarios, Storage integrado para almacenamiento de imágenes con políticas de seguridad, y funciones RPC para operaciones complejas de búsqueda vectorial.
 
@@ -271,7 +271,7 @@ El backend de PetAlert está desarrollado en Python utilizando el framework Fast
 - **Pillow (PIL)**: Procesamiento y manipulación de imágenes
 
 **Integración con Servicios:**
-- **Google Cloud Vision API**: Análisis automático de imágenes (detección de etiquetas, colores, etc.)
+- **MegaDescriptor-L-384**: Modelo de embeddings especializado para reconocimiento visual de animales
 - **Supabase Python Client**: Cliente oficial para PostgreSQL y Storage
 - **psycopg2**: Driver de PostgreSQL para operaciones directas
 
@@ -314,7 +314,7 @@ El backend expone los siguientes grupos de endpoints:
 ```
 GET /health
 ```
-Verifica el estado del servicio y sus dependencias (Supabase, Google Vision).
+Verifica el estado del servicio y sus dependencias (Supabase, MegaDescriptor).
 
 *Embeddings y Búsqueda Vectorial*
 
@@ -470,34 +470,36 @@ class EmbeddingService:
 - **Tamaño de entrada**: 384x384 píxeles
 - **Rendimiento**: ~200-500ms por imagen en CPU, ~50-100ms en GPU
 
-**Integración con Google Cloud Vision API**
+**Sistema de Búsqueda por Similitud Visual**
 
-Además del modelo local MegaDescriptor, el backend integra Google Cloud Vision API para análisis complementario:
+El backend utiliza MegaDescriptor para generar embeddings vectoriales y realizar búsquedas por similitud visual:
 
-**Funcionalidades utilizadas:**
-- **Label Detection**: Identificación automática de etiquetas (ej: "perro", "golden retriever", "pelaje largo")
-- **Image Properties**: Extracción de colores dominantes
-- **Object Localization**: Detección de objetos en la imagen
+**Funcionalidades:**
+- **Generación de Embeddings**: Cada imagen se convierte en un vector de 2048 dimensiones
+- **Búsqueda Vectorial**: Usa pgvector en Supabase para búsquedas rápidas de similitud
+- **Índice HNSW**: Optimizado para búsquedas k-NN eficientes
+- **Filtrado Inteligente**: Combina similitud visual con filtros geográficos y temporales
 
-Esta información enriquece los reportes y permite filtrados más precisos.
+Esta arquitectura permite búsquedas rápidas y precisas sin dependencias externas.
 
 ```python
-from google.cloud import vision
+from services.embeddings import image_bytes_to_vec
 
-def analyze_image_labels(image_path: str) -> dict:
-    client = vision.ImageAnnotatorClient()
+def search_similar_pets(image_bytes: bytes) -> list:
+    # Generar embedding de la imagen de búsqueda
+    query_embedding = image_bytes_to_vec(image_bytes)
     
-    with open(image_path, 'rb') as image_file:
-        content = image_file.read()
+    # Buscar reportes similares usando RPC de Supabase
+    similar_reports = supabase.rpc(
+        'search_similar_reports',
+        {
+            'query_embedding': query_embedding.tolist(),
+            'match_threshold': 0.6,
+            'match_count': 50
+        }
+    ).execute()
     
-    image = vision.Image(content=content)
-    response = client.label_detection(image=image)
-    labels = response.label_annotations
-    
-    return {
-        "labels": [label.description for label in labels],
-        "scores": [label.score for label in labels]
-    }
+    return similar_reports.data
 ```
 
 **Deploy y Containerización**
@@ -616,7 +618,7 @@ CREATE TABLE public.reports (
   embedding VECTOR(1536),
   
   -- Metadatos
-  labels JSONB,  -- Etiquetas de Google Vision
+  labels JSONB,  -- Metadatos adicionales (opcional)
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

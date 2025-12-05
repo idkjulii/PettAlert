@@ -90,9 +90,8 @@ class TestReportsAPI:
         # Debe fallar validación (400 o 422)
         assert response.status_code in [400, 422]
 
-    @patch('routers.reports.send_to_n8n_webhook')
     @patch('routers.reports.generate_and_save_embedding')
-    def test_fr_004_create_report_with_photos(self, mock_embedding, mock_n8n, mock_supabase, sample_report_data):
+    def test_fr_004_create_report_with_photos(self, mock_embedding, mock_supabase, sample_report_data):
         """FR-004, FR-017: Crear reporte con fotos"""
         # Mock de inserción exitosa
         created_report = {
@@ -101,8 +100,6 @@ class TestReportsAPI:
         }
         mock_supabase.table.return_value.insert.return_value.execute.return_value.data = [created_report]
         
-        # Mock para n8n (si está habilitado)
-        mock_n8n.return_value = {"success": True, "status_code": 200}
 
         response = client.post("/reports/", json=sample_report_data)
         assert response.status_code == 200

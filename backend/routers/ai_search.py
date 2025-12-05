@@ -145,84 +145,68 @@ async def ai_search(
         if search_type not in ['lost', 'found', 'both']:
             raise HTTPException(400, "search_type debe ser 'lost', 'found' o 'both'")
         
-        # Leer y analizar la imagen
+        # Leer la imagen
         content = await file.read()
         if not content:
             raise HTTPException(400, "Archivo vacío o no leído")
         
-        # Configurar cliente de Google Vision
-        vision_client = vision.ImageAnnotatorClient()
-        image = vision.Image(content=content)
+        # Usar embeddings de MegaDescriptor para búsqueda por similitud visual
+        # En lugar de Google Vision, usamos el sistema de embeddings existente
+        from services.embeddings import image_bytes_to_vec
         
-        # Análisis de etiquetas
-        label_resp = vision_client.label_detection(image=image)
-        if label_resp.error.message:
-            raise HTTPException(502, f"Vision label_detection: {label_resp.error.message}")
+        # Generar embedding de la imagen de búsqueda
+        query_embedding = image_bytes_to_vec(content)
         
-        labels = []
-        for lb in label_resp.label_annotations:
-            labels.append({
-                "label": lb.description,
-                "score": round(lb.score * 100, 2),
-                "original_label": lb.description
-            })
-        
-        # Análisis de colores dominantes
-        prop_resp = vision_client.image_properties(image=image)
-        colors = []
-        if not prop_resp.error.message:
-            try:
-                color_data = prop_resp.image_properties_annotation.dominant_colors.colors
-                for c in color_data[:3]:  # Top 3 colores
-                    r, g, b = int(c.color.red), int(c.color.green), int(c.color.blue)
-                    colors.append(f"#{r:02X}{g:02X}{b:02X}")
-            except Exception:
-                colors = []
-        
-        # Determinar especie detectada
-        detected_species = None
-        for label in labels:
-            label_text = label["label"].lower()
-            if "dog" in label_text or "perro" in label_text:
-                detected_species = "dog"
-                break
-            elif "cat" in label_text or "gato" in label_text:
-                detected_species = "cat"
-                break
-            elif "bird" in label_text or "pájaro" in label_text or "ave" in label_text:
-                detected_species = "bird"
-                break
-            elif "rabbit" in label_text or "conejo" in label_text:
-                detected_species = "rabbit"
-                break
-        
-        # Si no se detectó especie, usar "other"
-        if not detected_species:
-            detected_species = "other"
-        
-        # Preparar datos de análisis
-        analysis_data = {
-            "labels": labels,
-            "colors": colors,
-            "species": detected_species,
-            "file_name": file.filename,
-            "file_size": len(content)
-        }
-        
-        # Buscar candidatos en la base de datos
+        # Buscar reportes similares usando el embedding
         sb = _sb()
         
-        # Construir consulta según tipo de búsqueda
-        query = sb.table("reports").select("*").eq("status", "active")
+        # Convertir embedding a lista para la búsqueda
+        query_vector = query_embedding.tolist()
         
+        # Buscar reportes similares usando la función RPC de Supabase
+        try:
+            similar_reports = sb.rpc(
+                'search_similar_reports',
+                {
+                    'query_embedding': query_vector,
+                    'match_threshold': 0.6,
+                    'match_count': 50
+                }
+            ).execute()
+            
+            candidates = similar_reports.data if similar_reports.data else []
+        except Exception as e:
+            # Si falla la búsqueda por embedding, hacer búsqueda simple
+            candidates = []
+        
+        # Preparar datos de análisis (sin Google Vision)
+        analysis_data = {
+            "labels": [],
+            "colors": [],
+            "species": "other",  # Se detectará de los candidatos encontrados
+            "file_name": file.filename,
+            "file_size": len(content),
+            "method": "embedding_similarity"
+        }
+        
+        # Filtrar candidatos por tipo de búsqueda y especie
         if search_type != "both":
-            query = query.eq("type", search_type)
+            candidates = [c for c in candidates if c.get("type") == search_type]
         
-        # Filtrar por especie si se detectó
-        if detected_species and detected_species != "other":
-            query = query.eq("species", detected_species)
+        # Si no hay candidatos por embedding, hacer búsqueda simple por tipo
+        if not candidates:
+            query = sb.table("reports").select("*").eq("status", "active")
+            if search_type != "both":
+                query = query.eq("type", search_type)
+            candidates = query.execute().data
         
-        candidates = query.execute().data
+        detected_species = None
+        if candidates:
+            # Detectar especie del primer candidato más similar
+            detected_species = candidates[0].get("species", "other")
+        
+        # Actualizar análisis con la especie detectada
+        analysis_data["species"] = detected_species or "other"
         
         # Filtrar por distancia y calcular puntuaciones
         results = []
@@ -237,16 +221,20 @@ async def ai_search(
             if distance_km > radius_km:
                 continue
             
-            # Calcular puntuaciones
-            visual_score = calculate_visual_similarity(
-                {"labels": labels}, 
-                candidate.get("labels", {})
-            )
+            # Calcular puntuaciones basadas en similitud de embedding
+            # Si el candidato viene de la búsqueda por embedding, ya tiene similitud
+            if "similarity" in candidate:
+                visual_score = candidate["similarity"] * 100
+            else:
+                # Calcular similitud de embedding si está disponible
+                visual_score = 50  # Puntuación neutral si no hay embedding
             
+            # Similitud de colores (usar colores guardados en el reporte si existen)
+            candidate_colors = candidate.get("colors", [])
             color_score = calculate_color_similarity(
-                colors, 
-                candidate.get("colors", [])
-            )
+                [],  # No tenemos colores de la imagen de búsqueda
+                candidate_colors
+            ) if candidate_colors else 0
             
             location_score = calculate_location_score(distance_km, radius_km)
             time_score = calculate_time_score(candidate.get("created_at"))
@@ -302,7 +290,7 @@ async def ai_search(
                 "radius_km": radius_km,
                 "user_location": {"lat": user_lat, "lng": user_lng},
                 "detected_species": detected_species,
-                "analysis_confidence": "Alta" if len(labels) >= 5 else "Media" if len(labels) >= 3 else "Baja"
+                "analysis_confidence": "Alta" if len(candidates) > 0 else "Baja"
             }
         }
         
@@ -320,14 +308,11 @@ async def ai_search_health():
         sb = _sb()
         test_query = sb.table("reports").select("id").limit(1).execute()
         
-        # Verificar Google Vision (simulación)
-        vision_status = "configurado"
-        
         return {
             "status": "ok",
             "message": "Servicio de búsqueda IA funcionando",
             "supabase": "conectado" if test_query.data is not None else "error",
-            "google_vision": vision_status,
+            "method": "embedding_similarity",
             "endpoints": {
                 "ai_search": "/ai-search/",
                 "health": "/ai-search/health"
@@ -337,8 +322,7 @@ async def ai_search_health():
         return {
             "status": "error",
             "message": f"Error en servicio IA: {str(e)}",
-            "supabase": "error",
-            "google_vision": "error"
+            "supabase": "error"
         }
 
 @router.post("/similarity")

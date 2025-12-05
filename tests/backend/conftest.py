@@ -10,7 +10,7 @@ from pathlib import Path
 # Configurar variables de entorno para tests
 os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
 os.environ.setdefault("SUPABASE_SERVICE_KEY", "test-key")
-os.environ.setdefault("N8N_WEBHOOK_URL", "https://test-n8n.webhook.test")
+os.environ.setdefault("GENERATE_EMBEDDINGS_LOCALLY", "true")
 
 
 @pytest.fixture
@@ -20,12 +20,6 @@ def mock_supabase_client():
     return mock_client
 
 
-@pytest.fixture
-def mock_n8n_webhook():
-    """Fixture para mockear webhooks de n8n"""
-    with patch('routers.n8n_integration.send_to_n8n_webhook') as mock:
-        mock.return_value = {"success": True, "status_code": 200}
-        yield mock
 
 
 @pytest.fixture

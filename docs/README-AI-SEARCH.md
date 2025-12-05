@@ -7,21 +7,21 @@ La funcionalidad de **Búsqueda con IA** permite a los usuarios encontrar mascot
 ## 🚀 Características
 
 ### ✨ Funcionalidades Principales
-- **Análisis Visual**: Usa Google Cloud Vision API para detectar características de mascotas
-- **Búsqueda Inteligente**: Encuentra coincidencias basadas en similitud visual y colores
+- **Análisis Visual**: Usa MegaDescriptor para generar embeddings y buscar por similitud visual
+- **Búsqueda Inteligente**: Encuentra coincidencias basadas en similitud de embeddings vectoriales
 - **Filtros Avanzados**: Por tipo de reporte (perdido/encontrado), radio de búsqueda y especie
 - **Puntuación de Confianza**: Sistema de scoring que evalúa la relevancia de cada resultado
 - **Interfaz Intuitiva**: Diseño moderno y fácil de usar
 
 ### 🧠 Algoritmo de IA
-El sistema utiliza un algoritmo de puntuación multicriterio:
+El sistema utiliza un algoritmo de puntuación multicriterio basado en embeddings:
 
 ```
 Puntuación Total = 
-  Similitud Visual × 0.4 +      // 40% - Etiquetas de Google Vision
-  Similitud de Colores × 0.3 +  // 30% - Colores dominantes
-  Proximidad Geográfica × 0.2 + // 20% - Distancia del usuario
-  Relevancia Temporal × 0.1     // 10% - Antigüedad del reporte
+  Similitud Visual (Embeddings) × 0.4 +  // 40% - Similitud vectorial MegaDescriptor
+  Similitud de Colores × 0.3 +            // 30% - Colores guardados en reportes
+  Proximidad Geográfica × 0.2 +           // 20% - Distancia del usuario
+  Relevancia Temporal × 0.1               // 10% - Antigüedad del reporte
 ```
 
 ## 📱 Cómo Usar
@@ -39,24 +39,13 @@ Puntuación Total =
 - Toca "Cámara" para tomar una nueva foto
 - La imagen debe ser clara y mostrar bien la mascota
 
-### 4. Analizar con IA
-- Toca "Analizar con IA" para procesar la imagen
-- El sistema detectará:
-  - Especie (perro, gato, ave, etc.)
-  - Características visuales
-  - Colores dominantes
-  - Etiquetas descriptivas
+### 4. Buscar Coincidencias
+- Toca "Buscar Coincidencias" para procesar la imagen
+- El sistema generará un embedding usando MegaDescriptor
+- Buscará reportes similares usando búsqueda vectorial
+- Los resultados se ordenarán por similitud visual
 
-### 5. Buscar Coincidencias
-- Toca "Buscar Coincidencias" para encontrar matches
-- El sistema mostrará resultados ordenados por relevancia
-- Cada resultado incluye:
-  - Puntuación de match (0-100%)
-  - Distancia del usuario
-  - Información detallada de la mascota
-  - Nivel de confianza (Alta/Media/Baja)
-
-### 6. Contactar al Reportero
+### 5. Contactar al Reportero
 - Toca en cualquier resultado para ver detalles completos
 - Usa el sistema de mensajería integrado para contactar al dueño
 
@@ -75,8 +64,8 @@ backend/main.py               # Configuración del servidor
 ```
 
 ### APIs Utilizadas
-- **Google Cloud Vision API**: Análisis de imágenes
-- **Supabase**: Base de datos y almacenamiento
+- **MegaDescriptor**: Modelo de embeddings para similitud visual
+- **Supabase**: Base de datos y almacenamiento (con pgvector)
 - **FastAPI**: Servidor backend
 
 ## 📊 Endpoints Disponibles
@@ -95,10 +84,11 @@ Busca coincidencias usando IA.
 ```json
 {
   "analysis": {
-    "labels": [...],
-    "colors": [...],
+    "labels": [],
+    "colors": [],
     "species": "dog",
-    "file_name": "photo.jpg"
+    "file_name": "photo.jpg",
+    "method": "embedding_similarity"
   },
   "matches": [
     {
@@ -125,9 +115,9 @@ Calcula similitud entre etiquetas y colores (para testing).
 ### Variables de Entorno Requeridas
 ```env
 # Backend
-GOOGLE_APPLICATION_CREDENTIALS=backend/google-vision-key.json
 SUPABASE_URL=tu_url_de_supabase
 SUPABASE_SERVICE_KEY=tu_service_key
+GENERATE_EMBEDDINGS_LOCALLY=true  # Para usar MegaDescriptor localmente
 
 # Frontend
 EXPO_PUBLIC_SUPABASE_URL=tu_url_de_supabase
@@ -136,7 +126,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key
 
 ### Dependencias del Backend
 ```bash
-pip install fastapi uvicorn google-cloud-vision supabase python-dotenv
+pip install fastapi uvicorn supabase python-dotenv torch torchvision timm huggingface-hub pillow numpy
 ```
 
 ### Dependencias del Frontend
@@ -166,9 +156,10 @@ npm start
 ## 🐛 Solución de Problemas
 
 ### Error: "No se pudo analizar la imagen"
-- Verifica que el backend esté ejecutándose en puerto 8000
-- Confirma que las credenciales de Google Cloud Vision estén configuradas
-- Revisa que el archivo `google-vision-key.json` esté en la carpeta backend
+- Verifica que el backend esté ejecutándose en puerto 8003
+- Confirma que MegaDescriptor esté cargado correctamente
+- Revisa que `GENERATE_EMBEDDINGS_LOCALLY=true` esté en el `.env`
+- Verifica que el modelo se haya descargado correctamente (primera ejecución puede tardar)
 
 ### Error: "No se pudo realizar la búsqueda"
 - Verifica la conexión a Supabase

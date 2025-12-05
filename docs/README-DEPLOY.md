@@ -81,7 +81,7 @@ Guarda .env, credenciales, etc.
 - [ ] Tienes cuenta de Google Cloud Platform
 - [ ] Proyecto creado en GCP
 - [ ] Credenciales de Supabase (URL + Service Key)
-- [ ] Archivo `google-vision-key.json` de Google Cloud Vision
+- [ ] MegaDescriptor configurado (se descarga automáticamente en primera ejecución)
 
 ### En GCP:
 - [ ] VM creada (e2-medium, Ubuntu 22.04)
@@ -92,7 +92,7 @@ Guarda .env, credenciales, etc.
 - [ ] Docker instalado (`setup-vm.sh`)
 - [ ] Proyecto clonado/subido
 - [ ] Archivo `backend/.env` configurado
-- [ ] Archivo `backend/google-vision-key.json` subido
+- [ ] Variables de entorno configuradas (`GENERATE_EMBEDDINGS_LOCALLY=true`)
 - [ ] Deploy ejecutado (`deploy-vm.sh`)
 
 ### Verificación:
@@ -146,7 +146,7 @@ SUPABASE_URL=                    # URL de tu proyecto Supabase
 SUPABASE_SERVICE_KEY=            # Service role key de Supabase
 ALLOWED_ORIGINS=*                # Orígenes permitidos (CORS)
 GENERATE_EMBEDDINGS_LOCALLY=true # Generar embeddings con ML local
-GOOGLE_APPLICATION_CREDENTIALS=  # Ruta a credenciales (automático en Docker)
+GENERATE_EMBEDDINGS_LOCALLY=true  # Usar MegaDescriptor localmente
 ```
 
 ### Frontend (tu app móvil)
@@ -181,7 +181,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=                  # Anon key de Supabase
 ### Recomendaciones:
 1. **Usar HTTPS** en producción (certificado SSL)
 2. **Restringir ALLOWED_ORIGINS** a tu dominio específico
-3. **No commitear** `.env` ni `google-vision-key.json` a Git
+3. **No commitear** `.env` ni credenciales sensibles a Git
 4. **Backups regulares** de la configuración
 5. **Actualizar** regularmente el sistema y dependencias
 
@@ -233,13 +233,13 @@ docker stats
 # - Cambiar a VM con más RAM
 ```
 
-### Google Vision API no funciona
+### Embeddings no se generan
 ```bash
-# Verificar que el archivo existe
-ls -la backend/google-vision-key.json
+# Verificar que GENERATE_EMBEDDINGS_LOCALLY está configurado
+grep GENERATE_EMBEDDINGS_LOCALLY backend/.env
 
-# Verificar que está en el contenedor
-docker-compose exec backend ls -la /app/google-vision-key.json
+# Verificar que el modelo se descargó
+# El modelo se descarga automáticamente en la primera ejecución
 
 # Ver logs específicos
 docker-compose logs backend | grep -i vision

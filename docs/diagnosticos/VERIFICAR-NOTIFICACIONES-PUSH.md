@@ -116,12 +116,12 @@ Ver logs en Supabase Dashboard:
 
 **IMPORTANTE**: Asegúrate de que la app esté usando la nueva URL:
 ```
-https://named-determine-liabilities-promote.trycloudflare.com
+https://received-investments-riders-cope.trycloudflare.com
 ```
 
 Para verificar en los logs de Expo, busca:
 ```
-BACKEND_URL final: https://named-determine-liabilities-promote.trycloudflare.com
+BACKEND_URL final: https://received-investments-riders-cope.trycloudflare.com
 ```
 
 Si ves la URL antigua, recarga la app con `r` en la terminal de Expo.

@@ -84,7 +84,7 @@ SUPABASE_SERVICE_KEY=tu-service-key
 
 # IMPORTANTE: Esto debe estar en true
 GENERATE_EMBEDDINGS_LOCALLY=true
-AUTO_SEND_REPORTS_TO_N8N=true
+# N8N ya no se usa - el backend procesa todo localmente
 ```
 
 Si no tienes `GENERATE_EMBEDDINGS_LOCALLY=true`, los nuevos reportes NO generarán embeddings automáticamente.

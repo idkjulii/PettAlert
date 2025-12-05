@@ -10,8 +10,7 @@ $configToAdd = @"
 # Generar embeddings automáticamente al crear/actualizar reportes
 GENERATE_EMBEDDINGS_LOCALLY=true
 
-# Enviar reportes a n8n automáticamente para procesamiento adicional
-AUTO_SEND_REPORTS_TO_N8N=true
+# N8N ya no se usa - el backend procesa todo localmente con MegaDescriptor
 "@
 
 # Verificar si el archivo .env existe

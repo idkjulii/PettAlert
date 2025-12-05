@@ -156,7 +156,7 @@ En tu celular/emulador:
 # Realizar 10 búsquedas consecutivas
 for i in {1..10}; do
   echo "Búsqueda $i"
-  curl -X POST "https://named-determine-liabilities-promote.trycloudflare.com/embeddings/search_image?top_k=10" \
+  curl -X POST "https://received-investments-riders-cope.trycloudflare.com/embeddings/search_image?top_k=10" \
     -F "file=@test.jpg"
   echo ""
 done
@@ -233,7 +233,7 @@ const TIMEOUT_MS = 120000; // 120 segundos (2 minutos)
 
 **Solución:** Regenerar embeddings faltantes
 ```bash
-curl -X POST "https://named-determine-liabilities-promote.trycloudflare.com/fix-embeddings/regenerate-all"
+curl -X POST "https://received-investments-riders-cope.trycloudflare.com/fix-embeddings/regenerate-all"
 ```
 
 ### Problema: Backend usa mucha memoria

@@ -37,7 +37,7 @@ WHERE table_name = 'reports' AND column_name = 'embedding';
 
 ### 📋 Fase 2: Configurar Generación Automática de Embeddings (30 minutos)
 
-El backend ya genera embeddings automáticamente cuando se crean reportes. No se requiere configuración adicional de n8n.
+El backend ya genera embeddings automáticamente cuando se crean reportes. Todo se procesa localmente con MegaDescriptor.
 
 ---
 

@@ -88,12 +88,8 @@
 #### 3.1 Búsqueda por Imagen con IA
 - **Archivo**: `app/ai-search.jsx`
 - **Funcionalidades**:
-  - Selección de imagen desde galería o cámara
-  - Análisis de imagen con Google Vision API (etiquetas y colores)
-  - Configuración de tipo de búsqueda (perdidas/encontradas/ambas)
   - Configuración de radio de búsqueda (5, 10, 25, 50 km)
   - Búsqueda de coincidencias usando análisis de IA
-  - Búsqueda de coincidencias usando CLIP (similitud visual con embeddings)
   - Visualización de resultados con scores de similitud
   - Navegación a detalles de reportes encontrados
   - Manejo de errores de conexión y servidor
@@ -153,7 +149,7 @@
   - CRUD completo de reportes
   - Cálculo de distancia usando fórmula de Haversine
   - Generación automática de embeddings para búsqueda visual
-  - Integración con n8n para procesamiento asíncrono
+  - Procesamiento local con MegaDescriptor
   - Validación de datos y manejo de errores
   - Extracción de coordenadas de diferentes formatos (PostGIS, GeoJSON)
 
@@ -179,20 +175,6 @@
   - Filtrado por radio geográfico
   - Gestión de estados de matches (pending, confirmed, rejected)
 
-### 3. API de Búsqueda con IA
-
-#### 3.1 Búsqueda Inteligente (`/ai-search`)
-- **Archivo**: `backend/routers/ai_search.py`
-- **Endpoints**:
-  - `POST /ai-search/` - Búsqueda de coincidencias usando análisis de imagen
-  - `POST /ai-search/similarity` - Calcular similitud entre reportes
-  - `GET /ai-search/health` - Health check del servicio
-- **Funcionalidades**:
-  - Análisis de imágenes con Google Vision API
-  - Cálculo de similitud visual basado en etiquetas
-  - Cálculo de similitud de colores
-  - Scoring combinado (visual + color + distancia)
-  - Filtrado geográfico y por tipo de reporte
 
 #### 3.2 Búsqueda RAG (`/rag-search`)
 - **Archivo**: `backend/routers/rag_search.py`
@@ -216,7 +198,7 @@
   - `POST /embeddings/index/{report_id}` - Generar y guardar embedding
   - `POST /embeddings/search_image` - Buscar por similitud de imagen
 - **Funcionalidades**:
-  - Generación de embeddings CLIP para imágenes
+  - Generación de embeddings para imágenes
   - Búsqueda por similitud visual usando vectores
   - Almacenamiento en Supabase con pgvector
 
@@ -230,20 +212,6 @@
   - Integración directa con Supabase para embeddings
   - Búsqueda vectorial usando pgvector
 
-### 5. Integración con n8n
-
-#### 5.1 Orquestación de Procesos (`/n8n`)
-- **Archivo**: `backend/routers/n8n_integration.py`
-- **Endpoints**:
-  - `GET /n8n/reports/with-images` - Obtener reportes con imágenes para procesar
-  - `POST /n8n/process-result` - Recibir resultados de procesamiento de n8n
-  - `POST /n8n/send-to-webhook` - Enviar datos a webhook de n8n
-  - `POST /n8n/batch-process` - Procesamiento por lotes
-- **Funcionalidades**:
-  - Envío de reportes a n8n para procesamiento asíncrono
-  - Recepción de resultados de análisis
-  - Gestión de webhooks
-  - Procesamiento por lotes de reportes
 
 ### 6. API Principal
 

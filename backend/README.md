@@ -50,7 +50,7 @@ curl -X POST "http://127.0.0.1:8010/embeddings/search_image?top_k=10" \
 ```json
 {
   "results": [
-    {"report_id":"...","score_clip":0.83,"species":"dog","color":"brown","photo":"https://...","labels":{"tags":["Spitz","Snout"]}}
+    {"report_id":"...","similarity_score":0.83,"species":"dog","color":"brown","photo":"https://...","labels":{"tags":["Spitz","Snout"]}}
   ]
 }
 ```

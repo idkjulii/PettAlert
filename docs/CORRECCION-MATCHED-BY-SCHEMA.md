@@ -14,13 +14,13 @@ Pero el código estaba usando valores no permitidos:
 
 ## Correcciones Realizadas
 
-### 1. `backend/routers/n8n_integration.py`
+### 1. Código Actualizado
 
-**Línea 187 y 213:**
-- **Antes:** `"matched_by": "n8n_auto_search"`
+**Todos los lugares donde se crean matches:**
+- **Antes:** `"matched_by": "n8n_auto_search"` o `"auto_clip"`
 - **Ahora:** `"matched_by": "ai_visual"` ✅
 
-**Razón:** Usa embeddings de imágenes para búsqueda visual de coincidencias.
+**Razón:** Usa embeddings de imágenes (MegaDescriptor) para búsqueda visual de coincidencias.
 
 ### 2. `backend/routers/embeddings_supabase.py`
 
@@ -28,13 +28,13 @@ Pero el código estaba usando valores no permitidos:
 - **Antes:** `"matched_by": "auto_clip"`
 - **Ahora:** `"matched_by": "ai_visual"` ✅
 
-**Razón:** Usa OpenCLIP para generar embeddings de imágenes y compararlos.
+**Razón:** Usa MegaDescriptor para generar embeddings de imágenes y compararlos.
 
 ## Valores Permitidos
 
 Según el schema, estos son los únicos valores válidos:
 
-1. **`"ai_visual"`**: Para matches generados usando embeddings de imágenes (OpenCLIP, Google Vision, etc.)
+1. **`"ai_visual"`**: Para matches generados usando embeddings de imágenes (MegaDescriptor)
 2. **`"ai_text"`**: Para matches generados usando análisis de texto (descripciones, embeddings de texto)
 3. **`"manual"`**: Para matches creados manualmente por usuarios
 
@@ -42,8 +42,9 @@ Según el schema, estos son los únicos valores válidos:
 
 Todos los lugares donde se usa `matched_by` ahora usan valores válidos:
 
-- ✅ `backend/routers/n8n_integration.py`: `"ai_visual"` (2 lugares)
-- ✅ `backend/routers/embeddings_supabase.py`: `"ai_visual"` (1 lugar)
+- ✅ `backend/routers/embeddings_supabase.py`: `"ai_visual"`
+- ✅ `backend/routers/direct_matches.py`: `"ai_visual"`
+- ✅ `backend/routers/reports.py`: `"ai_visual"` (en find_and_save_matches)
 - ✅ `backend/routers/matches.py`: Solo lee el valor, no lo establece
 
 ## Resultado

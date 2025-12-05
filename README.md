@@ -28,13 +28,13 @@ npm install
    ```
 
 ### 4. Configurar pgvector para búsqueda por similitud visual
-Para habilitar la funcionalidad de búsqueda por similitud visual con CLIP, ejecuta esta migración en el SQL Editor de Supabase:
+Para habilitar la funcionalidad de búsqueda por similitud visual con MegaDescriptor, ejecuta esta migración en el SQL Editor de Supabase:
 
 ```sql
 -- Habilitar pgvector (no falla si ya existe)
 create extension if not exists vector;
 
--- Agregar columna vector(512) para embeddings CLIP
+-- Agregar columna vector(2048) para embeddings MegaDescriptor
 alter table public.reports
   add column if not exists embedding vector(512);
 
