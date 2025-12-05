@@ -1,42 +1,119 @@
+/**
+ * Pantalla de Registrar Indicador de Bienestar
+ * ==============================================
+ * 
+ * Esta pantalla permite al usuario registrar indicadores de bienestar de una mascota,
+ * como peso, altura, actividad, horas de descanso, temperatura, etc.
+ * 
+ * Funcionalidades:
+ * - Registrar múltiples métricas de bienestar
+ * - Fecha del registro
+ * - Validación (debe haber al menos una métrica)
+ * - Guardar en Supabase
+ * 
+ * Métricas disponibles:
+ * - Peso (kg)
+ * - Altura (cm)
+ * - Actividad (minutos)
+ * - Horas de descanso
+ * - Temperatura (°C)
+ * - Notas adicionales
+ */
+
+// =========================
+// Imports de React
+// =========================
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View, Alert } from 'react-native';
+
+// =========================
+// Imports de React Native
+// =========================
 import {
-  TextInput,
-  Button,
-  Text,
-  Title,
-  Card,
-  HelperText,
+  Alert,              // Para mostrar alertas
+  ScrollView,         // Para hacer scrollable el contenido
+  StyleSheet,         // Para estilos
+  View,               // Componente de vista básico
+} from 'react-native';
+
+// =========================
+// Imports de React Native Paper
+// =========================
+import {
+  Button,             // Botón de Material Design
+  Card,               // Tarjeta de Material Design
+  HelperText,         // Texto de ayuda
+  Text,               // Texto simple
+  TextInput,          // Campo de entrada de texto
+  Title,              // Título
 } from 'react-native-paper';
+
+// =========================
+// Imports de Safe Area
+// =========================
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+
+// =========================
+// Imports de Expo Router
+// =========================
+import { useLocalSearchParams, useRouter } from 'expo-router';
+
+// =========================
+// Imports de Servicios
+// =========================
 import { petService } from '../../../src/services/supabase';
 
+/**
+ * Componente principal de la pantalla de registrar indicador de bienestar
+ */
 export default function AddWellnessScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Router para navegación
   const router = useRouter();
+  
+  // ID de la mascota desde los parámetros de la ruta
   const { petId } = useLocalSearchParams();
+  
+  // =========================
+  // Estado Local
+  // =========================
+  // Estado de carga (cuando se está guardando)
   const [loading, setLoading] = useState(false);
 
+  // Datos del formulario
   const [formData, setFormData] = useState({
-    fecha: new Date().toISOString().split('T')[0],
-    peso: '',
-    altura: '',
-    actividad: '',
-    horas_descanso: '',
-    temperatura: '',
-    notas: '',
+    fecha: new Date().toISOString().split('T')[0],  // Fecha del registro (por defecto hoy)
+    peso: '',  // Peso en kg (opcional)
+    altura: '',  // Altura en cm (opcional)
+    actividad: '',  // Actividad en minutos (opcional)
+    horas_descanso: '',  // Horas de descanso (opcional)
+    temperatura: '',  // Temperatura en °C (opcional)
+    notas: '',  // Notas adicionales (opcional)
   });
 
+  // Errores de validación del formulario
   const [errors, setErrors] = useState({});
 
+  /**
+   * Valida los campos del formulario
+   * 
+   * @returns {boolean} true si el formulario es válido, false en caso contrario
+   * 
+   * Campos requeridos:
+   * - fecha: Debe estar presente
+   * - Al menos una métrica (peso, actividad, horas_descanso o temperatura) debe estar presente
+   */
   const validateForm = () => {
     const newErrors = {};
 
+    // Validar fecha
     if (!formData.fecha) {
       newErrors.fecha = 'La fecha es requerida';
     }
 
-    // Al menos peso o alguna otra métrica debe estar presente
+    // Validar que al menos una métrica esté presente
+    // Esto asegura que el registro tenga algún valor útil
     if (!formData.peso && !formData.actividad && !formData.horas_descanso && !formData.temperatura) {
       newErrors.peso = 'Debes registrar al menos una métrica (peso, actividad, descanso o temperatura)';
     }
@@ -45,7 +122,18 @@ export default function AddWellnessScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
+  /**
+   * Maneja el guardado del indicador de bienestar
+   * 
+   * Esta función:
+   * 1. Valida el formulario
+   * 2. Convierte los valores de texto a números donde corresponda
+   * 3. Llama al servicio para guardar en Supabase
+   * 4. Muestra mensaje de éxito o error
+   * 5. Navega de vuelta si es exitoso
+   */
   const handleSave = async () => {
+    // Validar formulario antes de guardar
     if (!validateForm()) {
       Alert.alert('Error', 'Por favor completa al menos una métrica');
       return;
@@ -54,26 +142,30 @@ export default function AddWellnessScreen() {
     setLoading(true);
 
     try {
+      // Preparar datos para enviar
+      // Convertir strings a números donde corresponda, o null si están vacíos
       const indicatorData = {
         fecha: formData.fecha,
-        peso: formData.peso ? parseFloat(formData.peso) : null,
+        peso: formData.peso ? parseFloat(formData.peso) : null,  // Convertir a número o null
         altura: formData.altura ? parseFloat(formData.altura) : null,
-        actividad: formData.actividad ? parseInt(formData.actividad) : null,
+        actividad: formData.actividad ? parseInt(formData.actividad) : null,  // Entero para minutos
         horas_descanso: formData.horas_descanso ? parseFloat(formData.horas_descanso) : null,
         temperatura: formData.temperatura ? parseFloat(formData.temperatura) : null,
-        notas: formData.notas.trim() || null,
+        notas: formData.notas.trim() || null,  // null si está vacío
       };
 
+      // Llamar al servicio para guardar en Supabase
       const { data, error } = await petService.addWellnessIndicator(petId, indicatorData);
 
       if (error) {
         throw error;
       }
 
+      // Mostrar mensaje de éxito y navegar de vuelta
       Alert.alert('¡Éxito!', 'Indicador de bienestar registrado correctamente', [
         {
           text: 'OK',
-          onPress: () => router.back(),
+          onPress: () => router.back(),  // Volver a la pantalla anterior
         },
       ]);
     } catch (error) {

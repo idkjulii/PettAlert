@@ -1,34 +1,104 @@
+/**
+ * Pantalla de Agregar Medicamento
+ * =================================
+ * 
+ * Esta pantalla permite al usuario registrar un nuevo medicamento para una mascota.
+ * 
+ * Funcionalidades:
+ * - Ingresar información del medicamento (nombre, dosis, frecuencia)
+ * - Fechas de inicio y fin del tratamiento
+ * - Motivo del tratamiento
+ * - Veterinario que lo prescribió
+ * - Validación de campos requeridos
+ * - Guardar en Supabase
+ */
+
+// =========================
+// Imports de React
+// =========================
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View, Alert } from 'react-native';
+
+// =========================
+// Imports de React Native
+// =========================
 import {
-  TextInput,
-  Button,
-  Text,
-  Title,
-  Card,
-  HelperText,
+  Alert,              // Para mostrar alertas
+  ScrollView,         // Para hacer scrollable el contenido
+  StyleSheet,         // Para estilos
+  View,               // Componente de vista básico
+} from 'react-native';
+
+// =========================
+// Imports de React Native Paper
+// =========================
+import {
+  Button,             // Botón de Material Design
+  Card,               // Tarjeta de Material Design
+  HelperText,         // Texto de ayuda
+  Text,               // Texto simple
+  TextInput,          // Campo de entrada de texto
+  Title,              // Título
 } from 'react-native-paper';
+
+// =========================
+// Imports de Safe Area
+// =========================
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+
+// =========================
+// Imports de Expo Router
+// =========================
+import { useLocalSearchParams, useRouter } from 'expo-router';
+
+// =========================
+// Imports de Servicios
+// =========================
 import { petService } from '../../../src/services/supabase';
 
+/**
+ * Componente principal de la pantalla de agregar medicamento
+ */
 export default function AddMedicationScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Router para navegación
   const router = useRouter();
+  
+  // ID de la mascota desde los parámetros de la ruta
   const { petId } = useLocalSearchParams();
+  
+  // =========================
+  // Estado Local
+  // =========================
+  // Estado de carga (cuando se está guardando)
   const [loading, setLoading] = useState(false);
 
+  // Datos del formulario
   const [formData, setFormData] = useState({
-    nombre: '',
-    dosis: '',
-    frecuencia: '',
-    fecha_inicio: new Date().toISOString().split('T')[0],
-    fecha_fin: '',
-    motivo: '',
-    veterinario: '',
+    nombre: '',  // Nombre del medicamento
+    dosis: '',  // Cantidad de dosis
+    frecuencia: '',  // Frecuencia de administración
+    fecha_inicio: new Date().toISOString().split('T')[0],  // Fecha de inicio (por defecto hoy)
+    fecha_fin: '',  // Fecha de fin del tratamiento (opcional)
+    motivo: '',  // Razón por la que se prescribe (opcional)
+    veterinario: '',  // Nombre del veterinario (opcional)
   });
 
+  // Errores de validación del formulario
   const [errors, setErrors] = useState({});
 
+  /**
+   * Valida los campos del formulario
+   * 
+   * @returns {boolean} true si el formulario es válido, false en caso contrario
+   * 
+   * Campos requeridos:
+   * - nombre: Debe tener contenido
+   * - dosis: Debe tener contenido
+   * - frecuencia: Debe tener contenido
+   * - fecha_inicio: Debe estar presente
+   */
   const validateForm = () => {
     const newErrors = {};
 
@@ -52,7 +122,18 @@ export default function AddMedicationScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
+  /**
+   * Maneja el guardado del medicamento
+   * 
+   * Esta función:
+   * 1. Valida el formulario
+   * 2. Prepara los datos para enviar
+   * 3. Llama al servicio para guardar en Supabase
+   * 4. Muestra mensaje de éxito o error
+   * 5. Navega de vuelta si es exitoso
+   */
   const handleSave = async () => {
+    // Validar formulario antes de guardar
     if (!validateForm()) {
       Alert.alert('Error', 'Por favor completa todos los campos requeridos');
       return;
@@ -61,27 +142,30 @@ export default function AddMedicationScreen() {
     setLoading(true);
 
     try {
+      // Preparar datos para enviar (limpiar strings vacíos y convertirlos a null)
       const medicationData = {
         nombre: formData.nombre.trim(),
         dosis: formData.dosis.trim(),
         frecuencia: formData.frecuencia.trim(),
         fecha_inicio: formData.fecha_inicio,
-        fecha_fin: formData.fecha_fin || null,
+        fecha_fin: formData.fecha_fin || null,  // null si está vacío
         motivo: formData.motivo.trim() || null,
         veterinario: formData.veterinario.trim() || null,
-        activo: true,
+        activo: true,  // El medicamento se marca como activo al crearlo
       };
 
+      // Llamar al servicio para guardar en Supabase
       const { data, error } = await petService.addMedication(petId, medicationData);
 
       if (error) {
         throw error;
       }
 
+      // Mostrar mensaje de éxito y navegar de vuelta
       Alert.alert('¡Éxito!', 'Medicamento registrado correctamente', [
         {
           text: 'OK',
-          onPress: () => router.back(),
+          onPress: () => router.back(),  // Volver a la pantalla anterior
         },
       ]);
     } catch (error) {

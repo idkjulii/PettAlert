@@ -14,13 +14,36 @@ Funcionalidades:
 Los embeddings se almacenan en Supabase usando pgvector para búsquedas eficientes.
 """
 
-# backend/routers/rag_search.py
-from fastapi import APIRouter, HTTPException, Query, Body
-from typing import List, Dict, Any, Optional
-import os, sys
-from pathlib import Path
+# =========================
+# Imports de FastAPI
+# =========================
+from fastapi import APIRouter, Body, HTTPException, Query
+
+# =========================
+# Imports de Python estándar
+# =========================
+import os  # Para variables de entorno
+import sys  # Para manipular el path de Python
+
+# =========================
+# Imports de pathlib
+# =========================
+from pathlib import Path  # Para trabajar con rutas de forma multiplataforma
+
+# =========================
+# Imports de tipos
+# =========================
+from typing import Any, Dict, List, Optional  # Para type hints
+
+# =========================
+# Imports de NumPy
+# =========================
 import numpy as np  # Para operaciones con vectores
-from supabase import Client
+
+# =========================
+# Imports de Supabase
+# =========================
+from supabase import Client  # Cliente de Supabase
 
 # Agregar la carpeta parent al path para poder importar utils
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -54,7 +77,24 @@ async def rag_search(
 ):
     """
     Búsqueda RAG usando embeddings almacenados en Supabase.
-    Busca reportes similares basándose en similitud de embeddings.
+    
+    Este endpoint busca reportes similares basándose en similitud de embeddings.
+    Usa la función SQL search_similar_reports que utiliza pgvector para búsqueda
+    vectorial eficiente.
+    
+    Args:
+        embedding: Vector de embedding de 512 dimensiones (debe ser exactamente 512)
+        match_threshold: Umbral mínimo de similitud (0.0-1.0, default 0.7)
+        match_count: Número máximo de resultados (1-50, default 10)
+        filter_species: Filtrar por especie (opcional, ej: 'dog', 'cat')
+        filter_type: Filtrar por tipo de reporte (opcional, 'lost' o 'found')
+        
+    Returns:
+        dict: Resultados con lista de reportes similares, conteo y parámetros de búsqueda
+        
+    Raises:
+        HTTPException 400: Si el embedding no tiene 512 dimensiones
+        HTTPException 500: Si hay error en la búsqueda
     """
     try:
         # Validar que el embedding tenga 512 dimensiones
@@ -108,7 +148,26 @@ async def rag_search_with_location(
 ):
     """
     Búsqueda RAG con filtro geográfico.
-    Combina similitud de embeddings con proximidad geográfica.
+    
+    Este endpoint combina similitud de embeddings con proximidad geográfica.
+    Busca reportes que sean visualmente similares Y estén dentro del radio especificado.
+    
+    Args:
+        embedding: Vector de embedding de 512 dimensiones
+        user_lat: Latitud del usuario (requerida)
+        user_lng: Longitud del usuario (requerida)
+        max_distance_km: Distancia máxima en kilómetros (0.1-100, default 10.0)
+        match_threshold: Umbral mínimo de similitud (0.0-1.0, default 0.7)
+        match_count: Número máximo de resultados (1-50, default 10)
+        filter_species: Filtrar por especie (opcional)
+        filter_type: Filtrar por tipo de reporte (opcional)
+        
+    Returns:
+        dict: Resultados con lista de reportes similares dentro del radio, conteo y parámetros
+        
+    Raises:
+        HTTPException 400: Si el embedding no tiene 512 dimensiones
+        HTTPException 500: Si hay error en la búsqueda
     """
     try:
         # Validar que el embedding tenga 512 dimensiones
@@ -161,6 +220,21 @@ async def save_embedding(
 ):
     """
     Guarda un embedding en Supabase para un reporte específico.
+    
+    Este endpoint actualiza el campo embedding de un reporte en la base de datos.
+    El embedding se almacena usando pgvector para permitir búsquedas vectoriales eficientes.
+    
+    Args:
+        report_id: ID del reporte (UUID)
+        embedding: Vector de embedding de 512 dimensiones
+        
+    Returns:
+        dict: Confirmación de éxito con report_id y dimensiones
+        
+    Raises:
+        HTTPException 400: Si el embedding no tiene 512 dimensiones
+        HTTPException 404: Si el reporte no existe
+        HTTPException 500: Si hay error guardando el embedding
     """
     try:
         # Validar que el embedding tenga 512 dimensiones
@@ -194,6 +268,19 @@ async def save_embedding(
 async def get_embedding(report_id: str):
     """
     Obtiene el embedding de un reporte específico.
+    
+    Este endpoint recupera el embedding almacenado de un reporte desde Supabase.
+    Útil para verificar si un reporte tiene embedding o para análisis.
+    
+    Args:
+        report_id: ID del reporte (UUID)
+        
+    Returns:
+        dict: Embedding del reporte con dimensiones
+        
+    Raises:
+        HTTPException 404: Si el reporte no tiene embedding o no existe
+        HTTPException 500: Si hay error obteniendo el embedding
     """
     try:
         sb = _sb()
@@ -223,6 +310,18 @@ async def get_embedding(report_id: str):
 async def check_has_embedding(report_id: str):
     """
     Verifica si un reporte tiene embedding.
+    
+    Este endpoint verifica rápidamente si un reporte tiene un embedding almacenado.
+    Útil para determinar si se necesita generar un embedding para un reporte.
+    
+    Args:
+        report_id: ID del reporte (UUID)
+        
+    Returns:
+        dict: report_id y has_embedding (boolean)
+        
+    Raises:
+        HTTPException 500: Si hay error verificando el embedding
     """
     try:
         sb = _sb()
@@ -243,6 +342,18 @@ async def check_has_embedding(report_id: str):
 async def get_rag_stats():
     """
     Obtiene estadísticas sobre los embeddings en la base de datos.
+    
+    Este endpoint proporciona información sobre:
+    - Total de reportes
+    - Reportes con embedding
+    - Reportes activos con embedding
+    - Porcentaje de cobertura (reportes con embedding / total)
+    
+    Returns:
+        dict: Estadísticas de embeddings con conteos y porcentajes
+        
+    Raises:
+        HTTPException 500: Si hay error obteniendo las estadísticas
     """
     try:
         sb = _sb()

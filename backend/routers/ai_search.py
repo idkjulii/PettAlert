@@ -1,13 +1,67 @@
-from fastapi import APIRouter, HTTPException, File, UploadFile, Query
-from typing import List, Dict, Any, Optional
-import os, math, traceback, sys
-from pathlib import Path
-from supabase import Client
+"""
+Router de Búsqueda con IA
+==========================
+
+Este router maneja búsquedas inteligentes de mascotas usando inteligencia artificial.
+Utiliza MegaDescriptor para generar embeddings de imágenes y busca coincidencias
+visuales entre reportes de mascotas perdidas y encontradas.
+
+Funcionalidades principales:
+- Búsqueda por imagen usando embeddings de MegaDescriptor
+- Cálculo de similitud visual entre imágenes
+- Filtrado por ubicación geográfica (Haversine)
+- Cálculo de scores combinados (visual, color, ubicación, tiempo)
+- Búsqueda de matches automáticos entre reportes
+
+Flujo de búsqueda:
+1. Usuario sube una imagen de una mascota
+2. Se genera embedding usando MegaDescriptor
+3. Se buscan reportes similares usando búsqueda vectorial (pgvector)
+4. Se calculan scores de similitud (visual, color, ubicación, tiempo)
+5. Se ordenan y filtran los resultados
+6. Se retornan los mejores matches
+
+El sistema usa embeddings de 2048 dimensiones generados por MegaDescriptor-L-384.
+"""
+
+# =========================
+# Imports de FastAPI
+# =========================
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+
+# =========================
+# Imports de Python estándar
+# =========================
+import math  # Para cálculos matemáticos (Haversine)
+import os  # Para variables de entorno
+import sys  # Para manipular el path de Python
+import traceback  # Para debugging
+
+# =========================
+# Imports de pathlib
+# =========================
+from pathlib import Path  # Para trabajar con rutas de forma multiplataforma
+
+# =========================
+# Imports de tipos
+# =========================
+from typing import Any, Dict, List, Optional  # Para type hints
+
+# =========================
+# Imports de Supabase
+# =========================
+from supabase import Client  # Cliente de Supabase
 
 # Agregar la carpeta parent al path para poder importar utils
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.supabase_client import get_supabase_client
 
+# =========================
+# Imports de servicios
+# =========================
+from services.embeddings import image_bytes_to_vec  # Generar embeddings con MegaDescriptor
+
+# Crear el router con prefijo /ai-search
 router = APIRouter(prefix="/ai-search", tags=["ai-search"])
 
 def _sb() -> Client:

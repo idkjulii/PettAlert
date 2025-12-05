@@ -1,34 +1,103 @@
+/**
+ * Pantalla de Crear Recordatorio
+ * ===============================
+ * 
+ * Esta pantalla permite al usuario crear un recordatorio para una mascota.
+ * Los recordatorios pueden ser para vacunas, chequeos, medicamentos, etc.
+ * 
+ * Funcionalidades:
+ * - Seleccionar tipo de recordatorio
+ * - Configurar título y descripción
+ * - Establecer fecha y hora programada
+ * - Configurar repetición (una vez, diario, semanal, mensual, anual)
+ * - Validación de campos requeridos
+ * - Guardar en Supabase
+ */
+
+// =========================
+// Imports de React
+// =========================
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View, Alert } from 'react-native';
+
+// =========================
+// Imports de React Native
+// =========================
 import {
-  TextInput,
-  Button,
-  Text,
-  Title,
-  Card,
-  RadioButton,
-  HelperText,
+  Alert,              // Para mostrar alertas
+  ScrollView,         // Para hacer scrollable el contenido
+  StyleSheet,         // Para estilos
+  View,               // Componente de vista básico
+} from 'react-native';
+
+// =========================
+// Imports de React Native Paper
+// =========================
+import {
+  Button,             // Botón de Material Design
+  Card,               // Tarjeta de Material Design
+  HelperText,         // Texto de ayuda
+  RadioButton,        // Radio button para selección
+  Text,               // Texto simple
+  TextInput,          // Campo de entrada de texto
+  Title,              // Título
 } from 'react-native-paper';
+
+// =========================
+// Imports de Safe Area
+// =========================
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+
+// =========================
+// Imports de Expo Router
+// =========================
+import { useLocalSearchParams, useRouter } from 'expo-router';
+
+// =========================
+// Imports de Servicios
+// =========================
 import { petService } from '../../../src/services/supabase';
 
+/**
+ * Componente principal de la pantalla de crear recordatorio
+ */
 export default function AddReminderScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Router para navegación
   const router = useRouter();
+  
+  // ID de la mascota desde los parámetros de la ruta
   const { petId } = useLocalSearchParams();
+  
+  // =========================
+  // Estado Local
+  // =========================
+  // Estado de carga (cuando se está guardando)
   const [loading, setLoading] = useState(false);
 
+  // Datos del formulario
   const [formData, setFormData] = useState({
-    tipo: 'vacuna',
-    titulo: '',
-    descripcion: '',
-    fecha_programada: '',
-    hora_programada: '',
-    repeticion: 'una_vez',
+    tipo: 'vacuna',  // Tipo: 'vacuna', 'chequeo', 'medicamento', 'desparasitacion', 'otro'
+    titulo: '',  // Título del recordatorio
+    descripcion: '',  // Descripción adicional (opcional)
+    fecha_programada: '',  // Fecha en que debe cumplirse
+    hora_programada: '',  // Hora específica (opcional, formato 24h)
+    repeticion: 'una_vez',  // Frecuencia: 'una_vez', 'diario', 'semanal', 'mensual', 'anual'
   });
 
+  // Errores de validación del formulario
   const [errors, setErrors] = useState({});
 
+  /**
+   * Valida los campos del formulario
+   * 
+   * @returns {boolean} true si el formulario es válido, false en caso contrario
+   * 
+   * Campos requeridos:
+   * - titulo: Debe tener contenido
+   * - fecha_programada: Debe estar presente
+   */
   const validateForm = () => {
     const newErrors = {};
 
@@ -44,7 +113,18 @@ export default function AddReminderScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
+  /**
+   * Maneja el guardado del recordatorio
+   * 
+   * Esta función:
+   * 1. Valida el formulario
+   * 2. Prepara los datos para enviar
+   * 3. Llama al servicio para guardar en Supabase
+   * 4. Muestra mensaje de éxito o error
+   * 5. Navega de vuelta si es exitoso
+   */
   const handleSave = async () => {
+    // Validar formulario antes de guardar
     if (!validateForm()) {
       Alert.alert('Error', 'Por favor completa todos los campos requeridos');
       return;
@@ -53,27 +133,30 @@ export default function AddReminderScreen() {
     setLoading(true);
 
     try {
+      // Preparar datos para enviar
       const reminderData = {
         tipo: formData.tipo,
         titulo: formData.titulo.trim(),
-        descripcion: formData.descripcion.trim() || null,
+        descripcion: formData.descripcion.trim() || null,  // null si está vacío
         fecha_programada: formData.fecha_programada,
-        hora_programada: formData.hora_programada || null,
+        hora_programada: formData.hora_programada || null,  // null si está vacío
         repeticion: formData.repeticion,
-        activo: true,
-        cumplido: false,
+        activo: true,  // El recordatorio se marca como activo al crearlo
+        cumplido: false,  // Inicialmente no está cumplido
       };
 
+      // Llamar al servicio para guardar en Supabase
       const { data, error } = await petService.createReminder(petId, reminderData);
 
       if (error) {
         throw error;
       }
 
+      // Mostrar mensaje de éxito y navegar de vuelta
       Alert.alert('¡Éxito!', 'Recordatorio creado correctamente', [
         {
           text: 'OK',
-          onPress: () => router.back(),
+          onPress: () => router.back(),  // Volver a la pantalla anterior
         },
       ]);
     } catch (error) {

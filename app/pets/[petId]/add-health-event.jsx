@@ -1,34 +1,104 @@
+/**
+ * Pantalla de Agregar Evento de Salud
+ * ====================================
+ * 
+ * Esta pantalla permite al usuario registrar un evento de salud para una mascota,
+ * como chequeos, enfermedades, cirugías, alergias, etc.
+ * 
+ * Funcionalidades:
+ * - Seleccionar tipo de evento (chequeo, enfermedad, cirugía, alergia, otro)
+ * - Ingresar fecha del evento
+ * - Descripción detallada del evento
+ * - Información del veterinario
+ * - Costo del tratamiento/consulta
+ * - Validación de campos requeridos
+ * - Guardar en Supabase
+ */
+
+// =========================
+// Imports de React
+// =========================
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View, Alert } from 'react-native';
+
+// =========================
+// Imports de React Native
+// =========================
 import {
-  TextInput,
-  Button,
-  Text,
-  Title,
-  Card,
-  RadioButton,
-  HelperText,
+  Alert,              // Para mostrar alertas
+  ScrollView,         // Para hacer scrollable el contenido
+  StyleSheet,         // Para estilos
+  View,               // Componente de vista básico
+} from 'react-native';
+
+// =========================
+// Imports de React Native Paper
+// =========================
+import {
+  Button,             // Botón de Material Design
+  Card,               // Tarjeta de Material Design
+  HelperText,         // Texto de ayuda
+  RadioButton,        // Radio button para selección
+  Text,               // Texto simple
+  TextInput,          // Campo de entrada de texto
+  Title,              // Título
 } from 'react-native-paper';
+
+// =========================
+// Imports de Safe Area
+// =========================
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+
+// =========================
+// Imports de Expo Router
+// =========================
+import { useLocalSearchParams, useRouter } from 'expo-router';
+
+// =========================
+// Imports de Servicios
+// =========================
 import { petService } from '../../../src/services/supabase';
 
+/**
+ * Componente principal de la pantalla de agregar evento de salud
+ */
 export default function AddHealthEventScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Router para navegación
   const router = useRouter();
+  
+  // ID de la mascota desde los parámetros de la ruta
   const { petId } = useLocalSearchParams();
+  
+  // =========================
+  // Estado Local
+  // =========================
+  // Estado de carga (cuando se está guardando)
   const [loading, setLoading] = useState(false);
 
+  // Datos del formulario
   const [formData, setFormData] = useState({
-    tipo_evento: 'chequeo',
-    fecha: new Date().toISOString().split('T')[0],
-    descripcion: '',
-    veterinario: '',
-    notas: '',
-    costo: '',
+    tipo_evento: 'chequeo',  // Tipo: 'chequeo', 'enfermedad', 'cirugia', 'alergia', 'otro'
+    fecha: new Date().toISOString().split('T')[0],  // Fecha del evento (por defecto hoy)
+    descripcion: '',  // Descripción detallada del evento
+    veterinario: '',  // Nombre del veterinario (opcional)
+    notas: '',  // Notas adicionales (opcional)
+    costo: '',  // Costo del tratamiento/consulta (opcional)
   });
 
+  // Errores de validación del formulario
   const [errors, setErrors] = useState({});
 
+  /**
+   * Valida los campos del formulario
+   * 
+   * @returns {boolean} true si el formulario es válido, false en caso contrario
+   * 
+   * Campos requeridos:
+   * - descripcion: Debe tener contenido
+   * - fecha: Debe estar presente
+   */
   const validateForm = () => {
     const newErrors = {};
 
@@ -44,7 +114,18 @@ export default function AddHealthEventScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
+  /**
+   * Maneja el guardado del evento de salud
+   * 
+   * Esta función:
+   * 1. Valida el formulario
+   * 2. Prepara los datos para enviar (convierte costo a número)
+   * 3. Llama al servicio para guardar en Supabase
+   * 4. Muestra mensaje de éxito o error
+   * 5. Navega de vuelta si es exitoso
+   */
   const handleSave = async () => {
+    // Validar formulario antes de guardar
     if (!validateForm()) {
       Alert.alert('Error', 'Por favor completa todos los campos requeridos');
       return;
@@ -53,25 +134,29 @@ export default function AddHealthEventScreen() {
     setLoading(true);
 
     try {
+      // Preparar datos para enviar
+      // Convertir costo a número si está presente, o null si está vacío
       const eventData = {
         tipo_evento: formData.tipo_evento,
         fecha: formData.fecha,
         descripcion: formData.descripcion.trim(),
-        veterinario: formData.veterinario.trim() || null,
+        veterinario: formData.veterinario.trim() || null,  // null si está vacío
         notas: formData.notas.trim() || null,
-        costo: formData.costo ? parseFloat(formData.costo) : null,
+        costo: formData.costo ? parseFloat(formData.costo) : null,  // Convertir a número o null
       };
 
+      // Llamar al servicio para guardar en Supabase
       const { data, error } = await petService.addHealthEvent(petId, eventData);
 
       if (error) {
         throw error;
       }
 
+      // Mostrar mensaje de éxito y navegar de vuelta
       Alert.alert('¡Éxito!', 'Evento de salud registrado correctamente', [
         {
           text: 'OK',
-          onPress: () => router.back(),
+          onPress: () => router.back(),  // Volver a la pantalla anterior
         },
       ]);
     } catch (error) {

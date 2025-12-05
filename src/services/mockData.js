@@ -1,4 +1,27 @@
-// Sistema de datos mock para PetAlert cuando Supabase no está configurado
+/**
+ * Sistema de Datos Mock
+ * ======================
+ * 
+ * Este módulo proporciona datos y servicios mock para desarrollo y pruebas
+ * cuando Supabase no está configurado o no está disponible.
+ * 
+ * Funcionalidades:
+ * - Datos de ejemplo (usuarios, reportes, mascotas)
+ * - Servicios mock que simulan el comportamiento de Supabase
+ * - Funciones de utilidad (simular delay de red, calcular distancias)
+ * 
+ * Uso:
+ * Este módulo se usa principalmente durante el desarrollo inicial o cuando
+ * se necesita probar la aplicación sin conexión a Supabase.
+ * 
+ * NOTA: En producción, estos datos mock NO deben usarse. La aplicación
+ * debe usar siempre los servicios reales de Supabase.
+ */
+
+// =========================
+// Datos Mock
+// =========================
+// Datos de ejemplo para desarrollo y pruebas
 export const mockData = {
   // Usuarios mock
   users: [
@@ -94,12 +117,34 @@ export const mockData = {
   ]
 };
 
-// Función para simular delay de red
+// =========================
+// Funciones de Utilidad
+// =========================
+
+/**
+ * Simula un delay de red para hacer las respuestas mock más realistas
+ * 
+ * @param {number} ms - Milisegundos de delay (default: 1000ms)
+ * @returns {Promise<void>} Promise que se resuelve después del delay
+ * 
+ * Esta función es útil para simular la latencia de red en desarrollo.
+ */
 export const simulateNetworkDelay = (ms = 1000) => {
   return new Promise(resolve => setTimeout(resolve, ms));
 };
 
-// Función para calcular distancia entre dos puntos
+/**
+ * Calcula la distancia entre dos puntos geográficos usando la fórmula de Haversine
+ * 
+ * @param {number} lat1 - Latitud del primer punto (en grados)
+ * @param {number} lon1 - Longitud del primer punto (en grados)
+ * @param {number} lat2 - Latitud del segundo punto (en grados)
+ * @param {number} lon2 - Longitud del segundo punto (en grados)
+ * @returns {number} Distancia en metros entre los dos puntos
+ * 
+ * La fórmula de Haversine calcula la distancia del círculo máximo (great circle distance)
+ * entre dos puntos en una esfera, considerando que la Tierra es una esfera perfecta.
+ */
 export const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3; // Radio de la Tierra en metros
   const φ1 = (lat1 * Math.PI) / 180;
@@ -115,7 +160,23 @@ export const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-// Servicios mock para reemplazar Supabase cuando no está configurado
+// =========================
+// Servicios Mock
+// =========================
+/**
+ * Servicios mock que simulan el comportamiento de Supabase
+ * 
+ * Estos servicios proporcionan la misma interfaz que los servicios reales
+ * de Supabase, pero usando datos mock en memoria.
+ * 
+ * Incluye:
+ * - auth: Autenticación mock (signIn, signUp, signOut, etc.)
+ * - reports: Gestión de reportes mock (getAllReports, getNearbyReports, etc.)
+ * - pets: Gestión de mascotas mock (getUserPets, createPet, etc.)
+ * 
+ * NOTA: Estos servicios solo deben usarse en desarrollo o cuando Supabase
+ * no está disponible. En producción, usar siempre los servicios reales.
+ */
 export const mockServices = {
   // Mock de autenticación
   auth: {
