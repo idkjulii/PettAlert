@@ -1,12 +1,44 @@
-// Wrapper robusto para ImagePicker que maneja errores de API
-import * as ImagePicker from 'expo-image-picker';
-import { Alert } from 'react-native';
+/**
+ * Servicio de Selección de Imágenes
+ * ==================================
+ * 
+ * Este servicio proporciona un wrapper robusto para ImagePicker de Expo
+ * que maneja errores de API y simplifica el uso de selección de imágenes.
+ * 
+ * Funcionalidades:
+ * - Solicitar permisos de galería y cámara
+ * - Seleccionar imágenes de la galería
+ * - Tomar fotos con la cámara
+ * - Manejo robusto de errores y permisos
+ * 
+ * Este servicio abstrae las diferencias entre versiones de ImagePicker
+ * y proporciona una API consistente para toda la aplicación.
+ */
 
+// Wrapper robusto para ImagePicker que maneja errores de API
+import * as ImagePicker from 'expo-image-picker';  // API de Expo para seleccionar imágenes
+import { Alert } from 'react-native';  // Para mostrar alertas
+
+/**
+ * Servicio de selección de imágenes
+ * 
+ * Proporciona métodos simplificados para trabajar con ImagePicker,
+ * manejando automáticamente permisos y errores.
+ */
 export const ImagePickerService = {
-  // Solicitar permisos de galería
+  /**
+   * Solicita permisos de acceso a la galería
+   * 
+   * @returns {Promise<boolean>} true si el permiso fue otorgado, false en caso contrario
+   * 
+   * Esta función solicita permisos de acceso a la galería de fotos del dispositivo.
+   * En iOS y Android, el usuario debe aprobar explícitamente el permiso.
+   */
   async requestGalleryPermissions() {
     try {
+      // Solicitar permisos de acceso a la galería
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      // Retornar true si el permiso fue otorgado
       return status === 'granted';
     } catch (error) {
       console.error('Error solicitando permisos de galería:', error);

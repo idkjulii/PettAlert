@@ -1,12 +1,25 @@
 """
-Router para búsqueda directa de coincidencias usando embeddings.
-Usa los embeddings almacenados en Supabase para encontrar matches.
+Router para Búsqueda Directa de Coincidencias usando Embeddings
+================================================================
+
+Este router permite buscar coincidencias directamente usando los embeddings
+ya almacenados en Supabase, sin necesidad de generar nuevos embeddings.
+
+A diferencia de /ai-search que genera embeddings de una imagen nueva,
+este router usa embeddings pre-existentes para buscar matches más rápido.
+
+Funcionalidades:
+- Buscar matches para un reporte usando su embedding existente
+- Búsqueda vectorial usando distancia coseno
+- Filtrado por tipo (lost/found) y especie
+- Configuración de umbral de similitud y número de resultados
 """
+
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List, Dict, Any
 import os
 from supabase import Client
-import numpy as np
+import numpy as np  # Para operaciones con vectores
 import sys
 from pathlib import Path
 
@@ -14,10 +27,19 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.supabase_client import get_supabase_client
 
+# Crear el router con prefijo /direct-matches
 router = APIRouter(prefix="/direct-matches", tags=["direct-matches"])
 
 def _sb() -> Client:
-    """Crea un cliente de Supabase con configuración optimizada de timeouts"""
+    """
+    Crea un cliente de Supabase con configuración optimizada de timeouts.
+    
+    Returns:
+        Client: Cliente de Supabase configurado
+        
+    Raises:
+        HTTPException: Si no se puede conectar a Supabase
+    """
     try:
         return get_supabase_client()
     except Exception as e:
@@ -25,34 +47,64 @@ def _sb() -> Client:
 
 @router.post("/find/{report_id}")
 async def find_matches_for_report(
-    report_id: str,
-    match_threshold: float = Query(0.1, ge=0.0, le=1.0, description="Umbral mínimo de similitud"),
-    top_k: int = Query(10, ge=1, le=50, description="Número máximo de resultados")
+    report_id: str,  # ID del reporte para buscar matches
+    match_threshold: float = Query(0.1, ge=0.0, le=1.0, description="Umbral mínimo de similitud (0.0-1.0)"),
+    top_k: int = Query(10, ge=1, le=50, description="Número máximo de resultados a retornar")
 ):
     """
-    Busca coincidencias para un reporte específico usando su embedding.
-    Busca directamente en Supabase usando búsqueda vectorial.
+    Busca coincidencias para un reporte específico usando su embedding existente.
+    
+    Este endpoint es más rápido que /ai-search porque usa embeddings ya generados
+    en lugar de generar uno nuevo desde una imagen.
+    
+    El proceso es:
+    1. Obtiene el embedding del reporte base
+    2. Busca reportes del tipo opuesto (lost/found) con embeddings
+    3. Calcula similitud usando distancia coseno
+    4. Filtra por umbral de similitud y especie
+    5. Retorna los mejores matches ordenados por similitud
+    
+    Args:
+        report_id: ID del reporte para buscar matches
+        match_threshold: Umbral mínimo de similitud (0.0 = cualquier similitud, 1.0 = idéntico)
+        top_k: Número máximo de matches a retornar
+        
+    Returns:
+        JSON con:
+        - report_id: ID del reporte base
+        - matches: Lista de matches encontrados ordenados por similitud
+        - total_candidates: Número total de candidatos evaluados
+        - message: Mensaje informativo
     """
     try:
         sb = _sb()
         
-        # Obtener el reporte base con su embedding
+        # =========================
+        # Obtener reporte base
+        # =========================
+        # Obtener el reporte base con su embedding y datos relevantes
         base_result = sb.table("reports")\
             .select("id, embedding, type, species, photos, pet_name, description, color")\
             .eq("id", report_id)\
             .single()\
             .execute()
         
+        # Verificar que el reporte existe
         if not base_result.data:
             raise HTTPException(404, f"Reporte {report_id} no encontrado")
         
         base_report = base_result.data
         base_embedding = base_report.get("embedding")
         
+        # Verificar que el reporte tiene embedding
         if not base_embedding:
             raise HTTPException(400, f"El reporte {report_id} no tiene embedding generado")
         
+        # =========================
+        # Parsear embedding
+        # =========================
         # Postgrest devuelve vectores como strings JSON, necesitamos parsearlos
+        # Esto es necesario porque pgvector almacena los vectores como JSON en Supabase
         if isinstance(base_embedding, str):
             import json
             try:
@@ -60,18 +112,24 @@ async def find_matches_for_report(
             except:
                 raise HTTPException(400, f"El reporte {report_id} tiene un embedding inválido")
         
-        base_type = base_report.get("type")
-        base_species = base_report.get("species")
+        # Extraer datos del reporte base
+        base_type = base_report.get("type")  # "lost" o "found"
+        base_species = base_report.get("species")  # "dog", "cat", etc.
         
         # Determinar el tipo opuesto para buscar
+        # Si el reporte base es "lost", buscar "found" y viceversa
         target_type = "found" if base_type == "lost" else "lost"
         
+        # Log para debugging
         print(f"🔍 [direct-match] Buscando coincidencias para reporte {report_id}")
         print(f"   Tipo base: {base_type}, buscando: {target_type}")
         print(f"   Especie: {base_species}")
         print(f"   Dimensiones embedding: {len(base_embedding)}")
         
-        # Obtener todos los reportes del tipo opuesto con embeddings
+        # =========================
+        # Buscar candidatos
+        # =========================
+        # Obtener todos los reportes del tipo opuesto que tengan embeddings
         candidates_result = sb.table("reports")\
             .select("id, embedding, species, type, photos, pet_name, description, color, created_at")\
             .eq("type", target_type)\
@@ -79,6 +137,7 @@ async def find_matches_for_report(
             .not_.is_("embedding", "null")\
             .execute()
         
+        # Si no hay candidatos, retornar respuesta vacía
         if not candidates_result.data:
             return {
                 "report_id": report_id,
@@ -90,14 +149,21 @@ async def find_matches_for_report(
         candidates = candidates_result.data
         print(f"   Candidatos encontrados: {len(candidates)}")
         
-        # Filtrar por especie si está disponible
+        # =========================
+        # Filtrar por especie
+        # =========================
+        # Filtrar candidatos por especie si el reporte base tiene especie
+        # Esto mejora la precisión de los matches
         if base_species:
             candidates = [c for c in candidates if c.get("species") == base_species]
             print(f"   Candidatos después de filtrar por especie: {len(candidates)}")
         
-        # Convertir embedding base a numpy
+        # =========================
+        # Calcular similitudes
+        # =========================
+        # Convertir embedding base a numpy array para cálculos vectoriales
         base_vec = np.array(base_embedding, dtype=np.float32)
-        base_norm = np.linalg.norm(base_vec)
+        base_norm = np.linalg.norm(base_vec)  # Norma del vector (para normalización)
         
         # Calcular similitud con cada candidato
         matches = []

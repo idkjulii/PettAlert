@@ -1,22 +1,43 @@
-// app/report/[id].jsx
-import { Image } from "expo-image";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import { BackHandler, ScrollView, StyleSheet, View } from "react-native";
-import {
-  ActivityIndicator,
-  Avatar,
-  Button,
-  Chip,
-  Divider,
-  HelperText,
-  IconButton,
-  Text,
-} from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { messageService, reportService } from "../../src/services/supabase";
-import { useAuthStore } from "../../src/stores/authStore";
+/**
+ * Pantalla de Detalles de Reporte
+ * ================================
+ * 
+ * Esta pantalla muestra los detalles completos de un reporte específico.
+ * 
+ * Funcionalidades:
+ * - Ver todos los detalles del reporte (fotos, descripción, ubicación, etc.)
+ * - Contactar al reportero (si está autenticado)
+ * - Ver información del reportero
+ * - Navegar de vuelta
+ * 
+ * El ID del reporte se obtiene de los parámetros de la ruta dinámica [id].
+ */
 
+// app/report/[id].jsx
+import { Image } from "expo-image";  // Componente de imagen optimizado de Expo
+import { useLocalSearchParams, useRouter } from "expo-router";  // Hooks de navegación
+import React, { useEffect, useMemo, useState } from "react";  // Hooks de React
+import { BackHandler, ScrollView, StyleSheet, View } from "react-native";  // Componentes básicos
+import {
+  ActivityIndicator,  // Spinner de carga
+  Avatar,  // Avatar de usuario
+  Button,  // Botón de Material Design
+  Chip,  // Chip para mostrar etiquetas
+  Divider,  // Divisor visual
+  HelperText,  // Texto de ayuda
+  IconButton,  // Botón con ícono
+  Text,  // Texto simple
+} from "react-native-paper";  // Componentes de Material Design
+import { SafeAreaView } from "react-native-safe-area-context";  // View que respeta áreas seguras
+import { messageService, reportService } from "../../src/services/supabase";  // Servicios
+import { useAuthStore } from "../../src/stores/authStore";  // Store de autenticación
+
+/**
+ * Obtiene el emoji correspondiente a una especie
+ * 
+ * @param {string} species - Especie de la mascota (dog, cat, bird, rabbit, other)
+ * @returns {string} Emoji correspondiente
+ */
 const getSpeciesEmoji = (species) => {
   switch (species) {
     case "dog":
@@ -28,34 +49,71 @@ const getSpeciesEmoji = (species) => {
     case "rabbit":
       return "🐰";
     default:
-      return "🐾";
+      return "🐾";  // Emoji genérico para otras especies
   }
 };
 
+/**
+ * Formatea una fecha a formato legible en español
+ * 
+ * @param {string} dateString - Fecha en formato ISO string
+ * @returns {string} Fecha formateada (ej: "15 ene, 14:30")
+ */
 const formatDate = (dateString) => {
   try {
     return new Date(dateString).toLocaleDateString("es-ES", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+      month: "short",  // Mes abreviado (ene, feb, etc.)
+      day: "numeric",  // Día numérico
+      hour: "2-digit",  // Hora en 2 dígitos
+      minute: "2-digit",  // Minutos en 2 dígitos
     });
   } catch {
-    return "-";
+    return "-";  // Retornar "-" si hay error al parsear
   }
 };
 
+/**
+ * Componente principal de la pantalla de detalles de reporte
+ */
 export default function ReportDetailScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Parámetros de la ruta (incluye el ID del reporte)
   const params = useLocalSearchParams();
+  
+  // ID del reporte desde los parámetros de la ruta
   const id = params?.id ? String(params.id) : null;
+  
+  // Router para navegación
   const router = useRouter();
+  
+  // =========================
+  // Estado Local
+  // =========================
+  // Datos del reporte cargado
   const [report, setReport] = useState(null);
+  
+  // Estado de carga (cuando se está cargando el reporte)
   const [loading, setLoading] = useState(true);
+  
+  // Error al cargar el reporte (si hay)
   const [error, setError] = useState(null);
+  
+  // Estado de carga al contactar al reportero
   const [contactLoading, setContactLoading] = useState(false);
+  
+  // Error al contactar al reportero (si hay)
   const [contactError, setContactError] = useState(null);
+  
+  // =========================
+  // Store de Autenticación
+  // =========================
+  // Obtener funciones del store
   const getUserId = useAuthStore((state) => state.getUserId);
   const isAuthenticatedFn = useAuthStore((state) => state.isAuthenticated);
+  
+  // Obtener ID del usuario actual y estado de autenticación
   const userId = getUserId();
   const isAuthenticated = isAuthenticatedFn();
 

@@ -1,28 +1,59 @@
-import { Image } from 'expo-image';
-import React from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
-import {
-    Avatar,
-    Button,
-    Card,
-    Chip,
-    Divider,
-    IconButton,
-    Modal,
-    Text
-} from 'react-native-paper';
+/**
+ * Modal de Detalles de Reporte
+ * =============================
+ * 
+ * Este componente muestra un modal con información resumida de un reporte.
+ * Se usa en el mapa para mostrar detalles rápidos cuando el usuario hace clic
+ * en un marcador.
+ * 
+ * Funcionalidades:
+ * - Mostrar información básica del reporte (tipo, especie, nombre, etc.)
+ * - Mostrar primera foto de la mascota
+ * - Mostrar distancia desde el usuario
+ * - Botones para ver detalles completos o contactar
+ * - Formateo de fechas y distancias
+ * 
+ * Este modal es una vista previa rápida. Para ver todos los detalles,
+ * el usuario debe hacer clic en "Ver detalles" que navega a la pantalla completa.
+ */
 
+import { Image } from 'expo-image';  // Componente de imagen optimizado de Expo
+import React from 'react';  // React
+import { Dimensions, StyleSheet, View } from 'react-native';  // Componentes básicos
+import {
+    Avatar,  // Avatar de usuario
+    Button,  // Botón de Material Design
+    Card,  // Tarjeta de Material Design
+    Chip,  // Chip para mostrar etiquetas
+    Divider,  // Divisor visual
+    IconButton,  // Botón con ícono
+    Modal,  // Modal de Material Design
+    Text  // Texto simple
+} from 'react-native-paper';  // Componentes de Material Design
+
+// Obtener dimensiones de la ventana para ajustar el tamaño del modal
 const { width, height } = Dimensions.get('window');
 
+/**
+ * Componente de modal de reporte
+ * 
+ * @param {boolean} visible - Si el modal está visible
+ * @param {object} report - Datos del reporte a mostrar
+ * @param {Function} onClose - Callback cuando se cierra el modal
+ * @param {Function} onViewDetails - Callback cuando se presiona "Ver detalles"
+ * @param {Function} onContact - Callback cuando se presiona "Contactar"
+ */
 const ReportModal = ({ 
-  visible, 
-  report, 
-  onClose, 
-  onViewDetails,
-  onContact 
+  visible,  // Controla si el modal está visible
+  report,  // Datos del reporte
+  onClose,  // Función para cerrar el modal
+  onViewDetails,  // Función para navegar a detalles completos
+  onContact  // Función para contactar al reportero
 }) => {
+  // Si no hay reporte, no renderizar nada
   if (!report) return null;
 
+  // Determinar si es un reporte de mascota perdida o encontrada
   const isLost = report.type === 'lost';
 
   const getSpeciesEmoji = (species) => {

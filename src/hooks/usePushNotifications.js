@@ -1,18 +1,52 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
-import { notificationService } from '../services/supabase';
-import { useAuthStore } from '../stores/authStore';
+/**
+ * Hook de Notificaciones Push
+ * ============================
+ * 
+ * Este hook gestiona el registro y manejo de notificaciones push.
+ * 
+ * Funcionalidades:
+ * - Solicitar permisos de notificaciones
+ * - Registrar token de Expo Push Notifications
+ * - Guardar token en Supabase para enviar notificaciones
+ * - Escuchar notificaciones recibidas
+ * - Manejar respuestas a notificaciones (cuando el usuario hace clic)
+ * 
+ * Las notificaciones se usan para:
+ * - Nuevos mensajes en conversaciones
+ * - Nuevos matches encontrados
+ * - Actualizaciones de reportes
+ */
 
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';  // Hooks de React
+import { Platform } from 'react-native';  // Para detectar la plataforma
+import * as Notifications from 'expo-notifications';  // API de notificaciones de Expo
+import Constants from 'expo-constants';  // Constantes de Expo
+import { notificationService } from '../services/supabase';  // Servicio de notificaciones
+import { useAuthStore } from '../stores/authStore';  // Store de autenticación
+
+// =========================
+// Configuración de Notificaciones
+// =========================
+// Configurar cómo se manejan las notificaciones cuando la app está en primer plano
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
+    shouldShowAlert: true,  // Mostrar alerta cuando llega una notificación
+    shouldPlaySound: false,  // No reproducir sonido (puede ser molesto)
+    shouldSetBadge: false,  // No actualizar badge (contador de notificaciones)
   }),
 });
 
+/**
+ * Obtiene el Project ID de Expo para notificaciones push
+ * 
+ * @returns {string|null} Project ID o null si no se encuentra
+ * 
+ * El Project ID es necesario para generar tokens de Expo Push Notifications.
+ * Se busca en múltiples lugares:
+ * 1. expoConfig.extra.eas.projectId
+ * 2. Constants.easConfig.projectId
+ * 3. EXPO_PUBLIC_EAS_PROJECT_ID (variable de entorno)
+ */
 const getProjectId = () => {
   const expoConfig = Constants.expoConfig ?? Constants.manifest;
   const candidate =
@@ -21,6 +55,7 @@ const getProjectId = () => {
     process.env.EXPO_PUBLIC_EAS_PROJECT_ID ??
     null;
 
+  // Validar que el Project ID tenga formato UUID válido
   const uuidRegex =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -34,14 +69,40 @@ const getProjectId = () => {
   return null;
 };
 
+/**
+ * Hook personalizado para gestionar notificaciones push
+ * 
+ * @returns {object} Objeto con:
+ *   - expoToken: Token de Expo Push Notifications
+ *   - status: Estado de los permisos
+ *   - error: Error si hay
+ *   - registering: Si se está registrando el token
+ * 
+ * Este hook se suscribe automáticamente a cambios en el usuario
+ * y registra/actualiza el token cuando el usuario cambia.
+ */
 export const usePushNotifications = () => {
+  // =========================
+  // Estado y Referencias
+  // =========================
+  // Obtener ID del usuario actual del store
   const userId = useAuthStore((state) => state.user?.id || null);
+  
+  // Token de Expo Push Notifications
   const [expoToken, setExpoToken] = useState(null);
+  
+  // Estado de permisos de notificaciones
   const [status, setStatus] = useState(null);
+  
+  // Error al registrar notificaciones (si hay)
   const [error, setError] = useState(null);
+  
+  // Estado de registro (cuando se está registrando el token)
   const [registering, setRegistering] = useState(false);
-  const notificationListener = useRef(null);
-  const responseListener = useRef(null);
+  
+  // Referencias para los listeners de notificaciones
+  const notificationListener = useRef(null);  // Listener para notificaciones recibidas
+  const responseListener = useRef(null);  // Listener para respuestas a notificaciones
 
   const ensureAndroidChannel = useCallback(async () => {
     if (Platform.OS !== 'android') {

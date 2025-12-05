@@ -1,10 +1,26 @@
 """
-Utility para crear clientes de Supabase con configuración optimizada de timeouts.
-Resuelve problemas de WinError 10060 en Windows.
+Utility para Crear Clientes de Supabase con Configuración Optimizada
+=====================================================================
+
+Este módulo proporciona funciones para crear clientes de Supabase con
+configuración optimizada de timeouts y manejo de conexiones.
+
+Problemas que resuelve:
+- WinError 10060 en Windows (timeout de conexión)
+- Conexiones lentas o con firewall
+- Timeouts prematuros en operaciones largas
+- Manejo de reintentos automáticos
+
+La configuración incluye:
+- Timeouts aumentados para conexiones lentas
+- Límites de conexiones concurrentes
+- Reintentos automáticos
+- Keep-alive para conexiones persistentes
 """
+
 import os
 from supabase import create_client, Client, ClientOptions
-import httpx
+import httpx  # Cliente HTTP con mejor control de timeouts
 from typing import Optional
 
 def create_supabase_client(

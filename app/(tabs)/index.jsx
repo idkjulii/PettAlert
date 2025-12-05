@@ -1,29 +1,110 @@
+/**
+ * Pantalla Principal (Home)
+ * ==========================
+ * 
+ * Esta es la pantalla principal de la aplicación que muestra un mapa
+ * interactivo con todos los reportes cercanos a la ubicación del usuario.
+ * 
+ * Funcionalidades:
+ * - Mapa interactivo con marcadores de reportes
+ * - Mostrar reportes cercanos a la ubicación del usuario
+ * - Pull-to-refresh para actualizar reportes
+ * - FAB (Floating Action Button) para crear reportes rápidamente
+ * - Modal para ver detalles de reportes al hacer clic
+ * - Navegación a crear reporte perdido/encontrado
+ * 
+ * Flujo:
+ * 1. Obtiene la ubicación actual del usuario
+ * 2. Carga reportes cercanos desde el backend
+ * 3. Muestra los reportes en el mapa como marcadores
+ * 4. Permite interactuar con los marcadores para ver detalles
+ */
+
+// =========================
+// Imports de Expo Router
+// =========================
 import { useRouter } from 'expo-router';
+
+// =========================
+// Imports de React
+// =========================
 import React, { useEffect, useState } from 'react';
+
+// =========================
+// Imports de React Native
+// =========================
 import {
-    Alert,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+    Alert,              // Para mostrar alertas
+    StyleSheet,         // Para estilos
+    TouchableOpacity,   // Botón táctil
+    View,               // Componente de vista básico
 } from 'react-native';
+
+// =========================
+// Imports de React Native Paper
+// =========================
 import { FAB, Portal, Provider, Text } from 'react-native-paper';
+
+// =========================
+// Imports de Safe Area
+// =========================
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// =========================
+// Imports de Componentes
+// =========================
 import MapView from '../../src/components/Map/MapView';
 import ReportModal from '../../src/components/UI/ReportModal';
+
+// =========================
+// Imports de Servicios
+// =========================
 import { getCurrentLocation } from '../../src/services/location';
 import { authService, messageService, reportService } from '../../src/services/supabase';
+
+// =========================
+// Imports de Stores
+// =========================
 import { useAuthStore } from '../../src/stores/authStore';
 
+/**
+ * Componente principal de la pantalla de inicio
+ */
 export default function HomeScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Router para navegación
   const router = useRouter();
+  
+  // Obtener función para obtener ID del usuario del store
   const { getUserId } = useAuthStore();
+  
+  // =========================
+  // Estado Local
+  // =========================
+  // Lista de reportes cercanos a mostrar en el mapa
   const [reports, setReports] = useState([]);
+  
+  // Estado de carga inicial (cuando se carga la pantalla por primera vez)
   const [loading, setLoading] = useState(true);
+  
+  // Estado de refresh (cuando el usuario hace pull-to-refresh)
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Ubicación actual del usuario (lat, lng)
   const [userLocation, setUserLocation] = useState(null);
+  
+  // Controla si el FAB (Floating Action Button) está abierto
   const [fabOpen, setFabOpen] = useState(false);
+  
+  // Usuario actual autenticado
   const [currentUser, setCurrentUser] = useState(null);
+  
+  // Reporte seleccionado para mostrar en el modal
   const [selectedReport, setSelectedReport] = useState(null);
+  
+  // Controla si el modal de detalles está visible
   const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
@@ -198,11 +279,6 @@ export default function HomeScreen() {
     router.push('/report/create-found');
   };
 
-  const handleAISearch = () => {
-    setFabOpen(false);
-    router.push('/ai-search');
-  };
-
   return (
     <Provider>
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -229,13 +305,6 @@ export default function HomeScreen() {
             visible={true}
             icon={fabOpen ? 'close' : 'plus'}
             actions={[
-              {
-                icon: 'magnify',
-                label: 'Búsqueda IA',
-                onPress: handleAISearch,
-                small: false,
-                color: '#007AFF',
-              },
               {
                 icon: 'paw',
                 label: 'Encontré una mascota',

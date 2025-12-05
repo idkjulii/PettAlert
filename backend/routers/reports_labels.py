@@ -1,3 +1,18 @@
+"""
+Router de Etiquetas de Reportes
+================================
+
+Este router maneja la gestión de etiquetas (labels) de los reportes.
+Las etiquetas son metadatos adicionales que se pueden asociar a un reporte
+para mejorar la búsqueda y categorización.
+
+Funcionalidades:
+- Guardar etiquetas para un reporte
+- Actualizar etiquetas existentes
+
+Las etiquetas se almacenan como JSON en la columna 'labels' de la tabla 'reports'.
+"""
+
 from fastapi import APIRouter, HTTPException, Path, Body
 from typing import Any, Dict
 import os, sys
@@ -8,10 +23,19 @@ from supabase import Client
 sys.path.insert(0, str(PathLib(__file__).parent.parent))
 from utils.supabase_client import get_supabase_client
 
+# Crear el router con prefijo /reports (comparte el mismo prefijo que reports.py)
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 def _sb() -> Client:
-    """Crea un cliente de Supabase con configuración optimizada de timeouts"""
+    """
+    Crea un cliente de Supabase con configuración optimizada de timeouts.
+    
+    Returns:
+        Client: Cliente de Supabase configurado
+        
+    Raises:
+        HTTPException: Si no se puede conectar a Supabase
+    """
     try:
         return get_supabase_client()
     except Exception as e:

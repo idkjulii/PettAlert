@@ -1,16 +1,54 @@
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View, TouchableOpacity, Image, RefreshControl } from 'react-native';
-import { ActivityIndicator, Card, Text, Title, Button } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { petService } from '../../src/services/supabase';
-import { useAuthStore } from '../../src/stores/authStore';
+/**
+ * Pantalla de Mis Mascotas
+ * ========================
+ * 
+ * Esta pantalla muestra todas las mascotas registradas del usuario.
+ * 
+ * Funcionalidades:
+ * - Listar todas las mascotas del usuario
+ * - Ver detalles de cada mascota
+ * - Crear nueva mascota
+ * - Pull-to-refresh para actualizar la lista
+ * - Navegar a detalles de mascota
+ * 
+ * Las mascotas se cargan desde Supabase usando el servicio de mascotas.
+ */
 
+import React, { useEffect, useState } from 'react';  // Hooks de React
+import { ScrollView, StyleSheet, View, TouchableOpacity, Image, RefreshControl } from 'react-native';  // Componentes básicos
+import { ActivityIndicator, Card, Text, Title, Button } from 'react-native-paper';  // Componentes de Material Design
+import { SafeAreaView } from 'react-native-safe-area-context';  // View que respeta áreas seguras
+import { useRouter } from 'expo-router';  // Hook de navegación
+import { petService } from '../../src/services/supabase';  // Servicio de mascotas
+import { useAuthStore } from '../../src/stores/authStore';  // Store de autenticación
+
+/**
+ * Componente principal de la pantalla de mascotas
+ */
 export default function PetsScreen() {
-  const { getUserId, isAuthenticated, user } = useAuthStore();
+  // =========================
+  // Hooks y Stores
+  // =========================
+  // Obtener funciones y estado del store de autenticación
+  const { 
+    getUserId,  // Función para obtener ID del usuario
+    isAuthenticated,  // Función para verificar si está autenticado
+    user  // Usuario actual
+  } = useAuthStore();
+  
+  // Router para navegación
   const router = useRouter();
+  
+  // =========================
+  // Estado Local
+  // =========================
+  // Lista de mascotas del usuario
   const [pets, setPets] = useState([]);
+  
+  // Estado de carga inicial (cuando se carga la pantalla por primera vez)
   const [loading, setLoading] = useState(true);
+  
+  // Error al cargar mascotas (si hay)
   const [error, setError] = useState(null);
 
   useEffect(() => {

@@ -1,18 +1,46 @@
-import * as FileSystem from 'expo-file-system/legacy';
-import * as ImageManipulator from 'expo-image-manipulator';
-import { supabase } from './supabase.js';
+/**
+ * Servicio de Almacenamiento de Archivos
+ * =======================================
+ * 
+ * Este servicio maneja la subida y gestión de archivos (principalmente imágenes)
+ * en Supabase Storage. Incluye funciones para:
+ * - Comprimir imágenes antes de subirlas
+ * - Convertir imágenes a diferentes formatos
+ * - Subir avatares de usuario
+ * - Subir fotos de mascotas
+ * - Subir fotos de reportes
+ * 
+ * Todas las imágenes se comprimen antes de subir para ahorrar ancho de banda
+ * y espacio de almacenamiento.
+ */
 
+import * as FileSystem from 'expo-file-system/legacy';  // API legacy de FileSystem
+import * as ImageManipulator from 'expo-image-manipulator';  // Para manipular imágenes
+import { supabase } from './supabase.js';  // Cliente de Supabase
+
+/**
+ * Comprime una imagen reduciendo su tamaño y calidad
+ * 
+ * @param {string} uri - URI de la imagen a comprimir (local file://)
+ * @param {number} quality - Calidad de compresión (0.0-1.0, default: 0.7)
+ * @returns {Promise<string>} URI de la imagen comprimida
+ * 
+ * La imagen se redimensiona a un ancho máximo de 1200px manteniendo
+ * la proporción de aspecto, y se comprime con la calidad especificada.
+ */
 const compressImage = async (uri, quality = 0.7) => {
   try {
+    // Manipular la imagen: redimensionar y comprimir
     const manipulatedImage = await ImageManipulator.manipulateAsync(
-      uri,
-      [{ resize: { width: 1200 } }],
+      uri,  // URI de la imagen original
+      [{ resize: { width: 1200 } }],  // Redimensionar a máximo 1200px de ancho
       {
-        compress: quality,
-        format: ImageManipulator.SaveFormat.JPEG,
+        compress: quality,  // Calidad de compresión (0.0 = máxima compresión, 1.0 = sin compresión)
+        format: ImageManipulator.SaveFormat.JPEG,  // Formato de salida (JPEG)
       }
     );
     
+    // Retornar la URI de la imagen comprimida
     return manipulatedImage.uri;
   } catch (error) {
     console.error('Error comprimiendo imagen:', error);

@@ -1,9 +1,31 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { useColorScheme } from 'react-native';
+/**
+ * Layout de Tabs (Navegación Principal)
+ * ======================================
+ * 
+ * Este componente define la navegación por tabs (pestañas) de la aplicación.
+ * Las tabs aparecen en la parte inferior de la pantalla y permiten navegar
+ * entre las secciones principales de la app.
+ * 
+ * Tabs disponibles:
+ * - Inicio: Mapa con reportes cercanos
+ * - Reportes: Lista de reportes del usuario
+ * - Mascotas: Lista de mascotas del usuario
+ * - Mensajes: Conversaciones del usuario
+ * - Perfil: Perfil y configuración del usuario
+ * 
+ * El layout se adapta automáticamente al tema del sistema (claro/oscuro).
+ */
 
+import { MaterialCommunityIcons } from '@expo/vector-icons';  // Iconos de Material Design
+import { Tabs } from 'expo-router';  // Componente de tabs de Expo Router
+import React from 'react';  // React
+import { useColorScheme } from 'react-native';  // Hook para detectar tema del sistema
+
+/**
+ * Componente principal del layout de tabs
+ */
 export default function TabLayout() {
+  // Detectar el tema del sistema (claro u oscuro)
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 

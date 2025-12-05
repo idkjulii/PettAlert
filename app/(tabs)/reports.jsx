@@ -1,101 +1,292 @@
+/**
+ * Pantalla de Reportes - Componente Principal
+ * ============================================
+ * 
+ * Esta pantalla muestra todos los reportes del usuario y permite:
+ * - Ver reportes propios (perdidos y encontrados)
+ * - Explorar reportes de otros usuarios
+ * - Editar y eliminar reportes propios
+ * - Ver y cargar matches (coincidencias) para cada reporte
+ * - Navegar a detalles de reportes
+ * 
+ * Usa dos tabs:
+ * - "Mis Reportes": Muestra solo los reportes del usuario actual
+ * - "Explorar": Muestra reportes de otros usuarios (excluyendo los propios)
+ */
+
+// =========================
+// Imports de Expo Router
+// =========================
 import { useRouter } from 'expo-router';
+
+// =========================
+// Imports de React
+// =========================
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Button, Card, IconButton, Text, Title, SegmentedButtons } from 'react-native-paper';
+
+// =========================
+// Imports de React Native
+// =========================
+import {
+    Alert,              // Para mostrar alertas
+    Image,              // Componente de imagen
+    ScrollView,         // Para hacer scrollable el contenido
+    StyleSheet,         // Para estilos
+    View,               // Componente de vista básico
+} from 'react-native';
+
+// =========================
+// Imports de React Native Paper
+// =========================
+import {
+    ActivityIndicator,  // Spinner de carga
+    Button,             // Botón de Material Design
+    Card,               // Tarjeta de Material Design
+    IconButton,         // Botón con ícono
+    SegmentedButtons,   // Botones segmentados para tabs
+    Text,               // Texto simple
+    Title,              // Título
+} from 'react-native-paper';
+
+// =========================
+// Imports de Safe Area
+// =========================
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// =========================
+// Imports de Servicios
+// =========================
 import { reportService } from '../../src/services/supabase';
+
+// =========================
+// Imports de Stores
+// =========================
 import { useAuthStore } from '../../src/stores/authStore';
 import { useMatchesStore } from '../../src/stores/matchStore';
 
+/**
+ * Componente principal de la pantalla de reportes
+ * 
+ * Este componente gestiona el estado y la lógica de la pantalla de reportes.
+ * Se divide en dos tabs: "Mis Reportes" y "Explorar"
+ */
 export default function ReportsScreen() {
+  // =========================
+  // Hooks y Stores
+  // =========================
+  // Obtener función para obtener el ID del usuario actual del store de autenticación
   const { getUserId } = useAuthStore();
+  
+  // Router de Expo para navegación entre pantallas
   const router = useRouter();
+  
+  // =========================
+  // Estado Local del Componente
+  // =========================
+  // Tab activo: 'my-reports' (mis reportes) o 'explore' (explorar)
   const [activeTab, setActiveTab] = useState('my-reports');
+  
+  // Lista de reportes del usuario actual (para el tab "Mis Reportes")
   const [reports, setReports] = useState([]);
+  
+  // Lista de todos los reportes de otros usuarios (para el tab "Explorar")
   const [allReports, setAllReports] = useState([]);
+  
+  // Estado de carga inicial (cuando se carga la pantalla por primera vez)
   const [loading, setLoading] = useState(true);
+  
+  // Estado de carga para el tab "Explorar" (carga cuando se cambia a ese tab)
   const [loadingAllReports, setLoadingAllReports] = useState(false);
+  
+  // ID del reporte que se está eliminando (para mostrar loading en ese reporte específico)
   const [deletingId, setDeletingId] = useState(null);
+  
+  // ID del reporte para el cual se están cargando matches (para mostrar loading)
   const [matchesLoadingId, setMatchesLoadingId] = useState(null);
+  
+  // =========================
+  // Estado del Store de Matches
+  // =========================
+  // Obtener los matches agrupados por report_id del store
+  // matchesByReport es un objeto: { reportId1: [match1, match2], reportId2: [...] }
   const matchesByReport = useMatchesStore((state) => state.matchesByReport);
+  
+  // Función para establecer matches para un reporte específico
   const setMatchesForReport = useMatchesStore((state) => state.setMatchesForReport);
+  
+  // Función para limpiar matches de un reporte específico
   const clearMatchesForReport = useMatchesStore((state) => state.clearMatchesForReport);
+  
+  // Errores al cargar matches por reporte (para mostrar mensajes de error)
+  // matchErrors es un objeto: { reportId1: "error message", reportId2: "..." }
   const [matchErrors, setMatchErrors] = useState({});
 
+  // =========================
+  // Efectos (useEffect)
+  // =========================
+  
+  /**
+   * Efecto que se ejecuta cuando el componente se monta (carga por primera vez)
+   * Carga los reportes del usuario actual
+   */
   useEffect(() => {
-    loadUserReports();
-  }, []);
-
+    loadUserReports();  // Cargar reportes del usuario al iniciar
+  }, []);  // Array vacío = solo se ejecuta una vez al montar
+  
+  /**
+   * Efecto que se ejecuta cuando cambia el tab activo
+   * Si se cambia a "explore" y aún no se han cargado los reportes, los carga
+   */
   useEffect(() => {
+    // Solo cargar si estamos en el tab "explore" y aún no hay reportes cargados
+    // Esto evita cargar datos innecesariamente si ya se cargaron antes
     if (activeTab === 'explore' && allReports.length === 0) {
-      loadAllReports();
+      loadAllReports();  // Cargar reportes de otros usuarios
     }
-  }, [activeTab]);
+  }, [activeTab]);  // Se ejecuta cada vez que activeTab cambia
 
+  /**
+   * Carga los reportes del usuario actual
+   * 
+   * Esta función obtiene todos los reportes creados por el usuario autenticado
+   * desde Supabase y los filtra para mostrar solo los activos (no cancelados).
+   * 
+   * Flujo:
+   * 1. Obtiene el ID del usuario actual
+   * 2. Si no hay usuario, termina la carga
+   * 3. Llama al servicio para obtener reportes del usuario
+   * 4. Filtra reportes cancelados/eliminados
+   * 5. Actualiza el estado con los reportes activos
+   */
   const loadUserReports = async () => {
     try {
+      // Obtener el ID del usuario actual del store de autenticación
       const userId = getUserId();
+      
+      // Si no hay usuario autenticado, no hay nada que cargar
       if (!userId) {
-        setLoading(false);
-        return;
+        setLoading(false);  // Dejar de mostrar loading
+        return;  // Salir de la función
       }
 
+      // Llamar al servicio de Supabase para obtener reportes del usuario
+      // reportService.getUserReports hace una query a Supabase filtrando por reporter_id
       const { data, error } = await reportService.getUserReports(userId);
       
+      // Si hay error en la petición (red, base de datos, etc.)
       if (error) {
         console.error('Error cargando reportes:', error);
+        // No mostramos alerta aquí porque puede ser molesto si el usuario no tiene reportes
       } else {
         // Filtrar reportes eliminados/cancelados
+        // Solo mostrar reportes con status 'active' (activos)
+        // Los reportes pueden tener status: 'active', 'resolved', 'cancelled'
         const activeReports = (data || []).filter(report => report.status !== 'cancelled');
+        
+        // Actualizar el estado con los reportes filtrados
         setReports(activeReports);
       }
     } catch (error) {
+      // Capturar cualquier error inesperado (excepciones no manejadas)
       console.error('Error inesperado:', error);
     } finally {
+      // Siempre dejar de mostrar loading, incluso si hubo error
       setLoading(false);
     }
   };
 
+  /**
+   * Carga todos los reportes de otros usuarios (para el tab "Explorar")
+   * 
+   * Esta función obtiene todos los reportes de la base de datos y filtra:
+   * - Solo reportes activos (status === 'active')
+   * - Excluye reportes del usuario actual (para no mostrar los propios en "Explorar")
+   * 
+   * Flujo:
+   * 1. Marca que está cargando
+   * 2. Obtiene el ID del usuario actual
+   * 3. Si no hay usuario, termina
+   * 4. Llama al servicio para obtener TODOS los reportes
+   * 5. Filtra por status activo y excluye los del usuario
+   * 6. Actualiza el estado con los reportes filtrados
+   */
   const loadAllReports = async () => {
     try {
+      // Marcar que está cargando (muestra spinner en el tab "Explorar")
       setLoadingAllReports(true);
+      
+      // Obtener el ID del usuario actual
       const userId = getUserId();
       
+      // Si no hay usuario autenticado, no hay nada que cargar
       if (!userId) {
         setLoadingAllReports(false);
         return;
       }
 
+      // Llamar al servicio para obtener TODOS los reportes de la base de datos
+      // Esto incluye reportes de todos los usuarios
       const { data, error } = await reportService.getAllReports();
       
+      // Si hay error en la petición
       if (error) {
         console.error('Error cargando todos los reportes:', error);
+        // Mostrar alerta al usuario porque es importante que pueda explorar reportes
         Alert.alert('Error', 'No se pudieron cargar los reportes. Por favor, intenta de nuevo.');
       } else {
-        // Filtrar solo reportes activos y excluir los del usuario actual
+        // Filtrar reportes:
+        // 1. Solo reportes activos (status === 'active')
+        // 2. Excluir reportes del usuario actual (reporter_id !== userId)
+        // Esto asegura que en "Explorar" solo se vean reportes de otros usuarios
         const otherUsersReports = (data || []).filter(
           report => report.status === 'active' && report.reporter_id !== userId
         );
+        
+        // Actualizar el estado con los reportes filtrados
         setAllReports(otherUsersReports);
       }
     } catch (error) {
+      // Capturar cualquier error inesperado
       console.error('Error inesperado cargando todos los reportes:', error);
       Alert.alert('Error', 'Ocurrió un error inesperado al cargar los reportes.');
     } finally {
+      // Siempre dejar de mostrar loading, incluso si hubo error
       setLoadingAllReports(false);
     }
   };
 
+  /**
+   * Maneja la edición de un reporte
+   * 
+   * Navega a la pantalla de creación/edición correspondiente según el tipo de reporte.
+   * Pasa el ID del reporte y un flag de edición para que la pantalla sepa que está editando.
+   * 
+   * @param {object} report - El reporte a editar (debe tener 'type' y 'id')
+   * 
+   * Flujo:
+   * - Si es tipo 'lost', navega a /report/create-lost
+   * - Si es tipo 'found', navega a /report/create-found
+   * - Pasa el reportId y editMode='true' como parámetros
+   */
   const handleEditReport = (report) => {
+    // Verificar el tipo de reporte para navegar a la pantalla correcta
     if (report.type === 'lost') {
+      // Navegar a la pantalla de creación/edición de reporte de pérdida
       router.push({
-        pathname: '/report/create-lost',
-        params: { reportId: report.id, editMode: 'true' }
+        pathname: '/report/create-lost',  // Ruta de la pantalla
+        params: { 
+          reportId: report.id,  // ID del reporte a editar
+          editMode: 'true'  // Flag que indica que estamos en modo edición
+        }
       });
     } else {
+      // Navegar a la pantalla de creación/edición de reporte de encontrado
       router.push({
-        pathname: '/report/create-found',
-        params: { reportId: report.id, editMode: 'true' }
+        pathname: '/report/create-found',  // Ruta de la pantalla
+        params: { 
+          reportId: report.id,  // ID del reporte a editar
+          editMode: 'true'  // Flag que indica que estamos en modo edición
+        }
       });
     }
   };

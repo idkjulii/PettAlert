@@ -1,81 +1,188 @@
+/**
+ * Pantalla de Registro
+ * =====================
+ * 
+ * Esta pantalla permite a los usuarios crear una nueva cuenta en la aplicación.
+ * 
+ * Funcionalidades:
+ * - Validación de campos (nombre, email, contraseña)
+ * - Verificación de que las contraseñas coincidan
+ * - Validación de longitud mínima de contraseña
+ * - Registro con Supabase Auth
+ * - Envío automático de email de confirmación
+ * - Navegación a login después del registro exitoso
+ * 
+ * Flujo:
+ * 1. Usuario completa el formulario
+ * 2. Se validan los campos
+ * 3. Se llama a signUp() del authService
+ * 4. Supabase envía un email de confirmación
+ * 5. Usuario debe verificar su email antes de poder iniciar sesión
+ */
+
+// =========================
+// Imports de Expo Router
+// =========================
 import { useRouter } from 'expo-router';
+
+// =========================
+// Imports de React
+// =========================
 import React, { useState } from 'react';
+
+// =========================
+// Imports de React Native
+// =========================
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    View,
+    Alert,              // Para mostrar alertas
+    KeyboardAvoidingView,  // Para ajustar cuando aparece el teclado
+    Platform,           // Para detectar la plataforma (iOS/Android)
+    ScrollView,         // Para hacer scrollable el contenido
+    StyleSheet,         // Para estilos
+    View,               // Componente de vista básico
 } from 'react-native';
+
+// =========================
+// Imports de React Native Paper
+// =========================
 import {
-    Button,
-    Card,
-    Divider,
-    HelperText,
-    Paragraph,
-    Text,
-    TextInput,
-    Title,
+    Button,             // Botón de Material Design
+    Card,               // Tarjeta de Material Design
+    Divider,            // Divisor visual
+    HelperText,         // Texto de ayuda para campos
+    Paragraph,          // Párrafo de texto
+    Text,               // Texto simple
+    TextInput,          // Campo de entrada de texto
+    Title,              // Título
 } from 'react-native-paper';
+
+// =========================
+// Imports de Safe Area
+// =========================
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// =========================
+// Imports de Servicios
+// =========================
 import { authService } from '../../src/services/supabase';
 
+/**
+ * Componente principal de la pantalla de registro
+ */
 export default function RegisterScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Router para navegación entre pantallas
   const router = useRouter();
+  
+  // =========================
+  // Estado Local
+  // =========================
+  // Nombre completo del usuario
   const [fullName, setFullName] = useState('');
+  
+  // Email del usuario
   const [email, setEmail] = useState('');
+  
+  // Contraseña del usuario
   const [password, setPassword] = useState('');
+  
+  // Confirmación de contraseña (debe coincidir con password)
   const [confirmPassword, setConfirmPassword] = useState('');
+  
+  // Estado de carga (muestra spinner mientras se procesa el registro)
   const [loading, setLoading] = useState(false);
+  
+  // Controla si se muestra u oculta la contraseña (para el ícono de ojo)
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Controla si se muestra u oculta la confirmación de contraseña
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  /**
+   * Valida todos los campos del formulario antes de enviar
+   * 
+   * @returns {boolean} true si todos los campos son válidos, false en caso contrario
+   * 
+   * Validaciones realizadas:
+   * - Nombre completo no vacío
+   * - Email no vacío y con formato válido (contiene @)
+   * - Contraseña no vacía y con al menos 6 caracteres
+   * - Las contraseñas coinciden
+   */
   const validateForm = () => {
+    // Validar nombre completo
     if (!fullName.trim()) {
       Alert.alert('Error', 'Por favor ingresa tu nombre completo');
       return false;
     }
 
+    // Validar email
     if (!email.trim()) {
       Alert.alert('Error', 'Por favor ingresa tu email');
       return false;
     }
 
+    // Validación básica de formato de email (debe contener @)
     if (!email.includes('@')) {
       Alert.alert('Error', 'Por favor ingresa un email válido');
       return false;
     }
 
+    // Validar contraseña
     if (!password.trim()) {
       Alert.alert('Error', 'Por favor ingresa una contraseña');
       return false;
     }
 
+    // Validar longitud mínima de contraseña (Supabase requiere mínimo 6 caracteres)
     if (password.length < 6) {
       Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
       return false;
     }
 
+    // Validar que las contraseñas coincidan
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Las contraseñas no coinciden');
       return false;
     }
 
+    // Si todas las validaciones pasan, retornar true
     return true;
   };
 
+  /**
+   * Maneja el proceso de registro del usuario
+   * 
+   * Esta función:
+   * 1. Valida el formulario
+   * 2. Llama a signUp() del authService
+   * 3. Maneja errores (email ya existe, contraseña débil, etc.)
+   * 4. Muestra mensaje de éxito y navega a login
+   * 
+   * Nota: Después del registro, el usuario debe verificar su email
+   * antes de poder iniciar sesión.
+   */
   const handleRegister = async () => {
-    if (!validateForm()) return;
+    // Validar el formulario antes de proceder
+    if (!validateForm()) {
+      return;  // Salir si la validación falla
+    }
 
     try {
+      // Marcar que está cargando (muestra spinner)
       setLoading(true);
+      
+      // Llamar al servicio de autenticación para registrar el usuario
+      // signUp() crea el usuario y envía un email de confirmación
       const { data, error } = await authService.signUp(
-        email.trim(),
-        password,
-        fullName.trim()
+        email.trim(),  // Email sin espacios
+        password,  // Contraseña (no se trimea para permitir espacios si el usuario los quiere)
+        fullName.trim()  // Nombre completo sin espacios
       );
 
+      // Si hay error en el registro
       if (error) {
         console.error('Error en registro:', error);
         Alert.alert(

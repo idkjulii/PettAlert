@@ -1,45 +1,77 @@
-import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+/**
+ * Pantalla de Conversación Individual
+ * ====================================
+ * 
+ * Esta pantalla muestra una conversación individual entre dos usuarios
+ * relacionada con un reporte específico.
+ * 
+ * Funcionalidades:
+ * - Ver todos los mensajes de la conversación
+ * - Enviar mensajes de texto
+ * - Enviar imágenes
+ * - Scroll automático a nuevos mensajes
+ * - Cargar más mensajes antiguos (paginación)
+ * - Marcar mensajes como leídos
+ * - Actualizaciones en tiempo real usando Supabase Realtime
+ * 
+ * La conversación se actualiza automáticamente cuando hay nuevos mensajes
+ * gracias a Supabase Realtime.
+ */
+
+import { Image } from 'expo-image';  // Componente de imagen optimizado
+import * as ImagePicker from 'expo-image-picker';  // Para seleccionar imágenes
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';  // Hooks de navegación
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';  // Hooks de React
 import {
-    Alert,
-    BackHandler,
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+    Alert,  // Para mostrar alertas
+    BackHandler,  // Para manejar el botón de atrás
+    FlatList,  // Lista optimizada para muchos elementos
+    KeyboardAvoidingView,  // Para ajustar cuando aparece el teclado
+    Platform,  // Para detectar la plataforma
+    StyleSheet,  // Para estilos
+    TouchableOpacity,  // Botón táctil
+    View,  // Componente de vista básico
 } from 'react-native';
 import {
-    ActivityIndicator,
-    Avatar,
-    Button,
-    IconButton,
-    Text,
-    TextInput,
-    useTheme,
-} from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useConversationMessages } from '../../src/hooks/useConversationMessages';
-import { storageService } from '../../src/services/storage';
-import { messageService } from '../../src/services/supabase';
-import { useAuthStore } from '../../src/stores/authStore';
-import { eventBus } from '../../src/utils/eventBus';
+    ActivityIndicator,  // Spinner de carga
+    Avatar,  // Avatar de usuario
+    Button,  // Botón de Material Design
+    IconButton,  // Botón con ícono
+    Text,  // Texto simple
+    TextInput,  // Campo de entrada de texto
+    useTheme,  // Hook para obtener el tema
+} from 'react-native-paper';  // Componentes de Material Design
+import { SafeAreaView } from 'react-native-safe-area-context';  // View que respeta áreas seguras
+import { useConversationMessages } from '../../src/hooks/useConversationMessages';  // Hook para gestionar mensajes
+import { storageService } from '../../src/services/storage';  // Servicio de almacenamiento
+import { messageService } from '../../src/services/supabase';  // Servicio de mensajes
+import { useAuthStore } from '../../src/stores/authStore';  // Store de autenticación
+import { eventBus } from '../../src/utils/eventBus';  // Event bus para comunicación
 
+/**
+ * Formatea una fecha/hora a formato legible
+ * 
+ * @param {string} timestamp - Timestamp en formato ISO string
+ * @returns {string} Hora formateada (ej: "14:30")
+ */
 const formatDateTime = (timestamp) => {
   if (!timestamp) return '';
   try {
     return new Date(timestamp).toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
+      hour: '2-digit',  // Hora en 2 dígitos
+      minute: '2-digit',  // Minutos en 2 dígitos
     });
   } catch {
-    return '';
+    return '';  // Retornar string vacío si hay error
   }
 };
 
+/**
+ * Formatea el tipo de reporte a texto legible
+ * 
+ * @param {string} type - Tipo de reporte ('lost' o 'found')
+ * @returns {string} Texto formateado
+ */
 const formatReportType = (type) => {
   if (type === 'lost') {
     return 'Mascota perdida';
@@ -47,21 +79,48 @@ const formatReportType = (type) => {
   if (type === 'found') {
     return 'Mascota encontrada';
   }
-  return 'Reporte';
+  return 'Reporte';  // Fallback genérico
 };
 
+/**
+ * Componente principal de la pantalla de conversación
+ */
 export default function ConversationScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Tema de Material Design
   const theme = useTheme();
+  
+  // ID de la conversación desde los parámetros de la ruta
   const { conversationId } = useLocalSearchParams();
+  
+  // Router para navegación
   const router = useRouter();
+  
+  // Obtener ID del usuario actual
   const getUserId = useAuthStore((state) => state.getUserId);
   const userId = getUserId();
 
+  // =========================
+  // Estado Local
+  // =========================
+  // Datos de la conversación (información del otro usuario, reporte relacionado, etc.)
   const [conversation, setConversation] = useState(null);
+  
+  // Estado de carga al cargar la conversación
   const [loadingConversation, setLoadingConversation] = useState(true);
+  
+  // Error al cargar la conversación (si hay)
   const [conversationError, setConversationError] = useState(null);
+  
+  // Texto del mensaje que el usuario está escribiendo
   const [messageInput, setMessageInput] = useState('');
+  
+  // Estado de carga al subir una imagen
   const [uploadingImage, setUploadingImage] = useState(false);
+  
+  // Verificar si el usuario actual es el reportero del reporte relacionado
   const isCurrentUserReporter = conversation?.report_reporter_id === userId;
 
   const {

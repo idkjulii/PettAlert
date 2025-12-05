@@ -194,6 +194,19 @@ export function GeoAlertsSettings({ onClose }) {
 
   return (
     <ScrollView style={styles.container}>
+      {/* Botón de cerrar en la parte superior */}
+      {onClose && (
+        <View style={styles.closeButtonContainer}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.closeButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="close" size={28} color="#000" />
+          </TouchableOpacity>
+        </View>
+      )}
+      
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Alertas Geográficas</Text>
@@ -413,9 +426,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
+  closeButtonContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 20,
+    right: 16,
+    zIndex: 1000,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 20,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
   header: {
     backgroundColor: '#FFF',
     padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 70 : 60,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
   },

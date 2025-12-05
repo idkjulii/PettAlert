@@ -1,24 +1,85 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { messageService } from '../services/supabase';
-import { eventBus } from '../utils/eventBus';
-import { useAuthStore } from '../stores/authStore';
+/**
+ * Hook de Mensajes de Conversación
+ * ==================================
+ * 
+ * Este hook gestiona la carga y envío de mensajes en una conversación específica.
+ * 
+ * Funcionalidades:
+ * - Cargar mensajes con paginación (carga más mensajes antiguos)
+ * - Enviar mensajes de texto e imágenes
+ * - Suscribirse a nuevos mensajes en tiempo real usando Supabase Realtime
+ * - Marcar mensajes como leídos
+ * - Actualizar estado automáticamente cuando hay nuevos mensajes
+ * 
+ * El hook se suscribe automáticamente a cambios en los mensajes usando
+ * Supabase Realtime, por lo que los mensajes se actualizan en tiempo real.
+ */
 
+import { useCallback, useEffect, useRef, useState } from 'react';  // Hooks de React
+import { messageService } from '../services/supabase';  // Servicio de mensajes
+import { eventBus } from '../utils/eventBus';  // Event bus para comunicación
+import { useAuthStore } from '../stores/authStore';  // Store de autenticación
+
+// Tamaño de página para paginación de mensajes (cuántos mensajes cargar a la vez)
 const MESSAGE_PAGE_SIZE = 40;
 
+/**
+ * Hook personalizado para gestionar mensajes de una conversación
+ * 
+ * @param {string} conversationId - ID de la conversación
+ * @returns {object} Objeto con:
+ *   - messages: Lista de mensajes
+ *   - loading: Estado de carga inicial
+ *   - loadingMore: Estado de carga de más mensajes
+ *   - sending: Estado de envío de mensaje
+ *   - error: Error si hay
+ *   - hasMore: Si hay más mensajes antiguos para cargar
+ *   - loadMore: Función para cargar más mensajes antiguos
+ *   - sendMessage: Función para enviar un mensaje
+ *   - markAsRead: Función para marcar mensajes como leídos
+ */
 export const useConversationMessages = (conversationId) => {
+  // =========================
+  // Hooks y Stores
+  // =========================
+  // Obtener función para obtener ID del usuario
   const getUserId = useAuthStore((state) => state.getUserId);
   const userId = getUserId();
 
+  // =========================
+  // Estado Local
+  // =========================
+  // Lista de mensajes de la conversación
   const [messages, setMessages] = useState([]);
+  
+  // Estado de carga inicial (cuando se carga por primera vez)
   const [loading, setLoading] = useState(true);
+  
+  // Estado de envío (cuando se está enviando un mensaje)
   const [sending, setSending] = useState(false);
+  
+  // Error al cargar/enviar mensajes (si hay)
   const [error, setError] = useState(null);
+  
+  // Si hay más mensajes antiguos para cargar (paginación)
   const [hasMore, setHasMore] = useState(true);
+  
+  // Estado de marcado como leído
   const [markingRead, setMarkingRead] = useState(false);
+  
+  // Estado de carga de más mensajes (paginación)
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // =========================
+  // Referencias
+  // =========================
+  // Cursor para paginación (timestamp del mensaje más antiguo cargado)
   const cursorRef = useRef(null);
+  
+  // Referencia a la suscripción de Supabase Realtime
   const channelRef = useRef(null);
+  
+  // Flag para prevenir múltiples cargas simultáneas
   const isFetchingRef = useRef(false);
 
   const updateMessagesState = useCallback((incomingMessages = []) => {

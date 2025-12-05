@@ -1,52 +1,114 @@
-import { create } from 'zustand';
-import { authService, profileService } from '../services/supabase';
+/**
+ * Store de Autenticación usando Zustand
+ * =======================================
+ * 
+ * Este store gestiona todo el estado relacionado con la autenticación del usuario:
+ * - Usuario actual y sesión
+ * - Estado de carga
+ * - Operaciones de login, registro, logout
+ * - Verificación de sesión existente
+ * - Actualización de perfil
+ * 
+ * Zustand es una librería de gestión de estado ligera y simple.
+ * Este store se puede usar en cualquier componente con el hook useAuthStore().
+ * 
+ * Ejemplo de uso:
+ * ```javascript
+ * const { user, login, isAuthenticated } = useAuthStore();
+ * if (!isAuthenticated()) {
+ *   await login(email, password);
+ * }
+ * ```
+ */
 
+import { create } from 'zustand';  // Librería para gestión de estado
+import { authService, profileService } from '../services/supabase';  // Servicios de autenticación
+
+/**
+ * Crear el store de autenticación
+ * 
+ * set: función para actualizar el estado
+ * get: función para leer el estado actual
+ */
 export const useAuthStore = create((set, get) => ({
-  // Estado inicial
-  user: null,
-  session: null,
-  loading: false,
-  initialized: false,
+  // =========================
+  // Estado inicial del store
+  // =========================
+  user: null,  // Objeto del usuario autenticado (null si no hay usuario)
+  session: null,  // Sesión de Supabase (contiene tokens, refresh tokens, etc.)
+  loading: false,  // Indica si hay una operación en curso (login, registro, etc.)
+  initialized: false,  // Indica si ya se verificó si hay una sesión existente al iniciar la app
 
-  // Actions para actualizar estado
-  setUser: (user) => set({ user }),
-  setSession: (session) => set({ session }),
-  setLoading: (loading) => set({ loading }),
-  setInitialized: (initialized) => set({ initialized }),
+  // =========================
+  // Actions simples para actualizar estado
+  // =========================
+  // Estas funciones permiten actualizar el estado directamente desde componentes
+  setUser: (user) => set({ user }),  // Actualizar el usuario actual
+  setSession: (session) => set({ session }),  // Actualizar la sesión
+  setLoading: (loading) => set({ loading }),  // Actualizar estado de carga
+  setInitialized: (initialized) => set({ initialized }),  // Marcar como inicializado
 
+  // =========================
   // Función de login
+  // =========================
+  /**
+   * Inicia sesión con email y contraseña
+   * 
+   * @param {string} email - Email del usuario
+   * @param {string} password - Contraseña del usuario
+   * @returns {Promise<{success: boolean, data?: any, error?: Error}>}
+   * 
+   * Flujo:
+   * 1. Marca loading como true
+   * 2. Llama al servicio de autenticación
+   * 3. Si hay error, retorna error
+   * 4. Si es exitoso, actualiza el estado con user y session
+   * 5. Asegura que el perfil del usuario existe en la base de datos
+   * 6. Retorna éxito
+   */
   login: async (email, password) => {
     try {
+      // Marcar que hay una operación en curso
       set({ loading: true });
       
+      // Llamar al servicio de autenticación de Supabase
+      // signIn verifica las credenciales y crea una sesión
       const { data, error } = await authService.signIn(email, password);
       
+      // Si hay error (credenciales incorrectas, usuario no existe, etc.)
       if (error) {
-        set({ loading: false });
-        return { success: false, error };
+        set({ loading: false });  // Dejar de cargar
+        return { success: false, error };  // Retornar error
       }
 
-      // Actualizar estado con datos del usuario y sesión
+      // Login exitoso: actualizar el estado con los datos del usuario y sesión
       set({
-        user: data.user,
-        session: data.session,
-        loading: false,
+        user: data.user,  // Objeto del usuario (id, email, metadata, etc.)
+        session: data.session,  // Sesión con tokens de autenticación
+        loading: false,  // Operación completada
       });
 
-      // Asegurar que el perfil existe después del login
+      // Asegurar que el perfil del usuario existe en la tabla 'profiles'
+      // Esto es importante porque el perfil puede no existir si el usuario se registró
+      // pero no completó algún paso, o si hubo un error al crearlo
       if (data.user) {
         try {
+          // ensureProfile crea el perfil si no existe, o lo actualiza si ya existe
           await profileService.ensureProfile(data.user.id, {
+            // Usar el nombre completo de los metadatos, o el email sin dominio, o 'Usuario' por defecto
             full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Usuario',
           });
         } catch (profileError) {
-          // No es crítico si falla, el perfil se creará en el próximo intento
+          // No es crítico si falla - el perfil se creará en el próximo intento
+          // o cuando el usuario actualice su perfil
           console.warn('No se pudo asegurar el perfil después del login:', profileError);
         }
       }
 
+      // Retornar éxito con los datos
       return { success: true, data };
     } catch (error) {
+      // Cualquier error inesperado (red, servidor, etc.)
       set({ loading: false });
       return { success: false, error };
     }

@@ -1,19 +1,44 @@
+"""
+Router de Búsqueda RAG (Retrieval Augmented Generation)
+=======================================================
+
+Este router implementa búsqueda semántica usando RAG (Retrieval Augmented Generation).
+RAG combina búsqueda vectorial con embeddings para encontrar información relevante.
+
+Funcionalidades:
+- Búsqueda de reportes similares usando embeddings
+- Búsqueda con filtros de ubicación
+- Guardar y recuperar embeddings de reportes
+- Estadísticas de embeddings
+
+Los embeddings se almacenan en Supabase usando pgvector para búsquedas eficientes.
+"""
+
 # backend/routers/rag_search.py
 from fastapi import APIRouter, HTTPException, Query, Body
 from typing import List, Dict, Any, Optional
 import os, sys
 from pathlib import Path
-import numpy as np
+import numpy as np  # Para operaciones con vectores
 from supabase import Client
 
 # Agregar la carpeta parent al path para poder importar utils
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.supabase_client import get_supabase_client
 
+# Crear el router con prefijo /rag
 router = APIRouter(prefix="/rag", tags=["rag-search"])
 
 def _sb() -> Client:
-    """Crea un cliente de Supabase con configuración optimizada de timeouts"""
+    """
+    Crea un cliente de Supabase con configuración optimizada de timeouts.
+    
+    Returns:
+        Client: Cliente de Supabase configurado
+        
+    Raises:
+        HTTPException: Si no se puede conectar a Supabase
+    """
     try:
         return get_supabase_client()
     except Exception as e:

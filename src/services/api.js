@@ -1,52 +1,102 @@
 /**
  * Servicio de API para comunicarse con el backend
+ * ================================================
+ * 
+ * Este servicio centraliza todas las peticiones HTTP al backend FastAPI.
+ * Proporciona métodos para hacer peticiones GET, POST, PUT, DELETE con:
+ * - Manejo de errores consistente
+ * - Timeouts configurables
+ * - Logging de peticiones y respuestas
+ * - Soporte para URLs de túnel (Cloudflare)
+ * - Validación de respuestas JSON
+ * 
+ * El backend está en FastAPI y corre en el puerto 8003 por defecto.
+ * Se puede configurar la URL en las variables de entorno o en config/backend.js
  */
+
 import { BACKEND_URL, ENDPOINTS, buildUrl } from '../config/backend';
 
+/**
+ * Clase principal del servicio de API
+ * 
+ * Esta clase encapsula toda la lógica de comunicación con el backend.
+ * Usa fetch() nativo de JavaScript para hacer peticiones HTTP.
+ */
 class ApiService {
+  /**
+   * Constructor - inicializa el servicio con la URL del backend
+   */
   constructor() {
+    // URL base del backend (ej: http://localhost:8003 o https://tunel.trycloudflare.com)
     this.baseUrl = BACKEND_URL;
     console.log('🔧 Backend URL configurada:', this.baseUrl);
   }
 
   /**
-   * Realiza una petición HTTP
+   * Realiza una petición HTTP al backend
+   * 
+   * Este es el método principal que todas las demás funciones usan.
+   * Maneja la construcción de URLs, headers, timeouts, y parsing de respuestas.
+   * 
+   * @param {string|object} endpoint - Endpoint como string o objeto con endpoint y params
+   * @param {object} options - Opciones de fetch (method, body, headers, etc.)
+   * @returns {Promise<{data: any, error: Error|null}>}
+   * 
+   * Ejemplo:
+   * ```javascript
+   * const { data, error } = await apiService.request('/reports', {
+   *   method: 'POST',
+   *   body: JSON.stringify({ pet_name: 'Max' })
+   * });
+   * ```
    */
   async request(endpoint, options = {}) {
     let url;
+    
+    // Construir la URL completa
     if (typeof endpoint === 'string') {
-      // Si es una cadena, agregar la URL base si no es una URL completa
+      // Si es una cadena simple (ej: '/reports')
+      // Verificar si ya es una URL completa (empieza con http:// o https://)
       if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
-        url = endpoint;
+        url = endpoint;  // Usar tal cual si ya es completa
       } else {
+        // Agregar la URL base del backend
         url = `${this.baseUrl}${endpoint}`;
       }
     } else {
+      // Si es un objeto con endpoint y params, usar buildUrl para construir la URL
+      // buildUrl maneja query parameters, path parameters, etc.
       url = buildUrl(endpoint.endpoint, endpoint.params);
     }
     
-    // Detectar si es una URL de túnel (Cloudflare)
+    // Detectar si estamos usando un túnel de Cloudflare
+    // Los túneles tienen URLs como: https://xxxx.trycloudflare.com
     const isTunnel = url.includes('trycloudflare.com');
     
     // Preparar headers base
+    // Cloudflare Tunnel no requiere headers especiales, pero podríamos agregarlos aquí
     const baseHeaders = {
       // Cloudflare Tunnel no requiere headers especiales
     };
     
-    // Si no hay headers personalizados, usar Content-Type por defecto para JSON
+    // Configurar Content-Type automáticamente si no se especificó
+    // Solo para JSON, no para FormData (que se usa para subir archivos)
     if (!options.headers || !options.headers['Content-Type']) {
       // Solo agregar Content-Type si el body es JSON (no FormData)
+      // FormData establece su propio Content-Type con boundary
       if (options.body && typeof options.body === 'string' && !options.body.includes('FormData')) {
         baseHeaders['Content-Type'] = 'application/json';
       }
     }
     
-    // Merge headers: base headers primero, luego los del usuario
+    // Combinar headers: primero los base, luego los del usuario (estos sobrescriben)
+    // Esto permite que el usuario especifique headers personalizados
     const finalHeaders = {
       ...baseHeaders,
       ...(options.headers || {})
     };
     
+    // Combinar todas las opciones finales
     const finalOptions = {
       ...options,
       headers: finalHeaders

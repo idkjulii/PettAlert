@@ -1,9 +1,35 @@
-import { NETWORK_CONFIG } from '../config/network.js';
-import { BACKEND_URL, getTunnelHeaders } from '../config/backend.js';
+/**
+ * Función de Búsqueda de Imágenes
+ * =================================
+ * 
+ * Esta función permite buscar mascotas similares subiendo una imagen.
+ * Se comunica con el endpoint /embeddings/search_image del backend.
+ * 
+ * Funcionalidades:
+ * - Sube una imagen al backend
+ * - El backend genera un embedding y busca matches
+ * - Retorna resultados ordenados por similitud
+ * - Maneja reintentos automáticos en caso de errores de red
+ * - Timeout configurable para operaciones largas
+ * 
+ * @param {string} baseUrl - URL base del backend (opcional)
+ * @param {string} fileUri - URI de la imagen a buscar (local file://)
+ * @param {number} lat - Latitud del usuario (opcional, para filtrar por distancia)
+ * @param {number} lng - Longitud del usuario (opcional, para filtrar por distancia)
+ * @param {number} maxKm - Radio máximo de búsqueda en kilómetros (opcional)
+ * @param {number} retryCount - Número de reintentos realizados (interno, no pasar manualmente)
+ * @returns {Promise<Object>} Resultados de la búsqueda con matches encontrados
+ */
+
+import { NETWORK_CONFIG } from '../config/network.js';  // Configuración de red
+import { BACKEND_URL, getTunnelHeaders } from '../config/backend.js';  // Configuración del backend
 
 export async function searchImage(baseUrl = BACKEND_URL || NETWORK_CONFIG.BACKEND_URL, fileUri, lat, lng, maxKm, retryCount = 0) {
-  const MAX_RETRIES = 2;
-  const TIMEOUT_MS = 90000; // 90 segundos para dar tiempo al modelo
+  // =========================
+  // Configuración
+  // =========================
+  const MAX_RETRIES = 2;  // Número máximo de reintentos en caso de error
+  const TIMEOUT_MS = 90000;  // 90 segundos para dar tiempo al modelo de generar embedding
   
   try {
     const form = new FormData();

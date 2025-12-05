@@ -1,35 +1,95 @@
+/**
+ * Pantalla de Crear/Editar Reporte de Mascota Encontrada
+ * =======================================================
+ * 
+ * Esta pantalla permite crear un nuevo reporte de mascota encontrada o editar uno existente.
+ * Similar a create-lost.jsx pero con campos específicos para reportes de encontrados.
+ * 
+ * Funcionalidades:
+ * - Formulario completo con todos los campos del reporte
+ * - Selección de especie y tamaño
+ * - Subir múltiples fotos de la mascota encontrada
+ * - Seleccionar ubicación donde se encontró
+ * - Fecha en que se encontró
+ * - Validación de campos requeridos
+ * - Modo edición (carga datos existentes)
+ * 
+ * Flujo de creación:
+ * 1. Usuario completa el formulario
+ * 2. Selecciona fotos de la mascota encontrada
+ * 3. Selecciona ubicación donde se encontró
+ * 4. Al guardar, se crea el reporte en Supabase
+ * 5. Se generan embeddings automáticamente en segundo plano
+ * 6. Se buscan matches automáticamente con reportes de perdidos
+ */
+
+// =========================
+// Imports de Expo
+// =========================
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+
+// =========================
+// Imports de React
+// =========================
 import React, { useEffect, useState } from 'react';
+
+// =========================
+// Imports de React Native
+// =========================
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+    ActivityIndicator,  // Spinner de carga
+    Alert,              // Para mostrar alertas
+    Image,              // Componente de imagen
+    KeyboardAvoidingView,  // Para ajustar cuando aparece el teclado
+    Platform,           // Para detectar la plataforma
+    ScrollView,         // Para hacer scrollable el contenido
+    StyleSheet,         // Para estilos
+    TouchableOpacity,   // Botón táctil
+    View,               // Componente de vista básico
 } from 'react-native';
+
+// =========================
+// Imports de React Native Paper
+// =========================
 import {
-    Button,
-    Card,
-    Chip,
-    HelperText,
-    IconButton,
-    Paragraph,
-    Text,
-    TextInput,
-    Title,
+    Button,             // Botón de Material Design
+    Card,               // Tarjeta de Material Design
+    Chip,               // Chip para selección
+    HelperText,         // Texto de ayuda
+    IconButton,         // Botón con ícono
+    Paragraph,          // Párrafo de texto
+    Text,               // Texto simple
+    TextInput,          // Campo de entrada de texto
+    Title,              // Título
 } from 'react-native-paper';
+
+// =========================
+// Imports de Safe Area
+// =========================
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// =========================
+// Imports de Componentes
+// =========================
 import MapView from '../../src/components/Map/MapView';
+
+// =========================
+// Imports de Servicios
+// =========================
 import { getCurrentLocation, reverseGeocode } from '../../src/services/location';
 import { storageService } from '../../src/services/storage';
 import { reportService } from '../../src/services/supabase';
+
+// =========================
+// Imports de Stores
+// =========================
 import { useAuthStore } from '../../src/stores/authStore';
 
+// =========================
+// Opciones del Formulario
+// =========================
+// Opciones de especies disponibles
 const SPECIES_OPTIONS = [
   { id: 'dog', label: 'Perro', icon: 'dog' },
   { id: 'cat', label: 'Gato', icon: 'cat' },
@@ -38,35 +98,84 @@ const SPECIES_OPTIONS = [
   { id: 'other', label: 'Otro', icon: 'paw' },
 ];
 
+// Opciones de tamaño disponibles
 const SIZE_OPTIONS = [
   { id: 'small', label: 'Pequeño' },
   { id: 'medium', label: 'Mediano' },
   { id: 'large', label: 'Grande' },
 ];
 
+/**
+ * Componente principal de la pantalla de crear/editar reporte encontrado
+ */
 export default function CreateFoundReportScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Router para navegación
   const router = useRouter();
+  
+  // Parámetros de la ruta (pueden incluir reportId y editMode)
   const params = useLocalSearchParams();
+  
+  // Obtener usuario actual del store de autenticación
   const { user } = useAuthStore();
   
+  // =========================
+  // Detección de Modo Edición
+  // =========================
+  // ID del reporte a editar (si existe)
   const reportId = params.reportId;
+  
+  // Verificar si estamos en modo edición
   const isEditMode = params.editMode === 'true' && reportId;
   
-  // Estados del formulario
+  // =========================
+  // Estados del Formulario
+  // =========================
+  // Especie (dog, cat, bird, rabbit, other)
   const [species, setSpecies] = useState('');
+  
+  // Raza de la mascota
   const [breed, setBreed] = useState('');
+  
+  // Color de la mascota
   const [color, setColor] = useState('');
+  
+  // Tamaño (small, medium, large)
   const [size, setSize] = useState('');
+  
+  // Descripción general de la mascota encontrada
   const [description, setDescription] = useState('');
+  
+  // Características distintivas
   const [distinctiveFeatures, setDistinctiveFeatures] = useState('');
+  
+  // Ubicación donde se encontró (texto)
   const [foundLocation, setFoundLocation] = useState('');
+  
+  // Fecha en que se encontró
   const [foundDate, setFoundDate] = useState('');
+  
+  // Fotos nuevas a subir (URIs locales)
   const [photos, setPhotos] = useState([]);
+  
+  // Fotos existentes del reporte (URLs de Supabase Storage)
   const [existingPhotos, setExistingPhotos] = useState([]);
+  
+  // Ubicación donde se encontró (objeto con lat, lng, address)
   const [location, setLocation] = useState(null);
+  
+  // Estado de carga (cuando se está guardando el reporte)
   const [loading, setLoading] = useState(false);
+  
+  // Estado de carga (cuando se está cargando un reporte para editar)
   const [loadingReport, setLoadingReport] = useState(false);
+  
+  // Controla si se muestra el mapa para seleccionar ubicación
   const [showMap, setShowMap] = useState(false);
+  
+  // Ubicación seleccionada en el mapa
   const [selectedLocation, setSelectedLocation] = useState(null);
 
   useEffect(() => {

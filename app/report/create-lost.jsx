@@ -1,35 +1,98 @@
+/**
+ * Pantalla de Crear/Editar Reporte de Mascota Perdida
+ * =====================================================
+ * 
+ * Esta pantalla permite crear un nuevo reporte de mascota perdida o editar uno existente.
+ * 
+ * Funcionalidades:
+ * - Formulario completo con todos los campos del reporte
+ * - Selección de especie y tamaño
+ * - Subir múltiples fotos de la mascota
+ * - Seleccionar ubicación en un mapa
+ * - Validación de campos requeridos
+ * - Modo edición (carga datos existentes)
+ * 
+ * Flujo de creación:
+ * 1. Usuario completa el formulario
+ * 2. Selecciona fotos de la mascota
+ * 3. Selecciona ubicación donde se perdió
+ * 4. Al guardar, se crea el reporte en Supabase
+ * 5. Se generan embeddings automáticamente en segundo plano
+ * 6. Se buscan matches automáticamente
+ * 
+ * Flujo de edición:
+ * 1. Se cargan los datos del reporte existente
+ * 2. Usuario modifica los campos
+ * 3. Al guardar, se actualiza el reporte
+ */
+
+// =========================
+// Imports de Expo
+// =========================
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+
+// =========================
+// Imports de React
+// =========================
 import React, { useEffect, useState } from 'react';
+
+// =========================
+// Imports de React Native
+// =========================
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+    ActivityIndicator,  // Spinner de carga
+    Alert,              // Para mostrar alertas
+    Image,              // Componente de imagen
+    KeyboardAvoidingView,  // Para ajustar cuando aparece el teclado
+    Platform,           // Para detectar la plataforma
+    ScrollView,         // Para hacer scrollable el contenido
+    StyleSheet,         // Para estilos
+    TouchableOpacity,   // Botón táctil
+    View,               // Componente de vista básico
 } from 'react-native';
+
+// =========================
+// Imports de React Native Paper
+// =========================
 import {
-    Button,
-    Card,
-    Chip,
-    HelperText,
-    IconButton,
-    Paragraph,
-    Text,
-    TextInput,
-    Title,
+    Button,             // Botón de Material Design
+    Card,               // Tarjeta de Material Design
+    Chip,               // Chip para selección múltiple
+    HelperText,         // Texto de ayuda
+    IconButton,         // Botón con ícono
+    Paragraph,          // Párrafo de texto
+    Text,               // Texto simple
+    TextInput,          // Campo de entrada de texto
+    Title,              // Título
 } from 'react-native-paper';
+
+// =========================
+// Imports de Safe Area
+// =========================
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// =========================
+// Imports de Componentes
+// =========================
 import MapView from '../../src/components/Map/MapView';
+
+// =========================
+// Imports de Servicios
+// =========================
 import { getCurrentLocation, reverseGeocode } from '../../src/services/location';
 import { storageService } from '../../src/services/storage';
 import { reportService } from '../../src/services/supabase';
+
+// =========================
+// Imports de Stores
+// =========================
 import { useAuthStore } from '../../src/stores/authStore';
 
+// =========================
+// Opciones del Formulario
+// =========================
+// Opciones de especies disponibles
 const SPECIES_OPTIONS = [
   { id: 'dog', label: 'Perro', icon: 'dog' },
   { id: 'cat', label: 'Gato', icon: 'cat' },
@@ -38,64 +101,145 @@ const SPECIES_OPTIONS = [
   { id: 'other', label: 'Otro', icon: 'paw' },
 ];
 
+// Opciones de tamaño disponibles
 const SIZE_OPTIONS = [
   { id: 'small', label: 'Pequeño' },
   { id: 'medium', label: 'Mediano' },
   { id: 'large', label: 'Grande' },
 ];
 
+/**
+ * Componente principal de la pantalla de crear/editar reporte perdido
+ */
 export default function CreateLostReportScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Router para navegación
   const router = useRouter();
+  
+  // Parámetros de la ruta (pueden incluir reportId y editMode)
   const params = useLocalSearchParams();
+  
+  // Obtener usuario actual del store de autenticación
   const { user } = useAuthStore();
   
+  // =========================
+  // Detección de Modo Edición
+  // =========================
+  // ID del reporte a editar (si existe)
   const reportId = params.reportId;
+  
+  // Verificar si estamos en modo edición
+  // editMode debe ser 'true' y reportId debe existir
   const isEditMode = params.editMode === 'true' && reportId;
   
-  // Estados del formulario
+  // =========================
+  // Estados del Formulario
+  // =========================
+  // Nombre de la mascota
   const [petName, setPetName] = useState('');
+  
+  // Especie (dog, cat, bird, rabbit, other)
   const [species, setSpecies] = useState('');
+  
+  // Raza de la mascota
   const [breed, setBreed] = useState('');
+  
+  // Color de la mascota
   const [color, setColor] = useState('');
+  
+  // Tamaño (small, medium, large)
   const [size, setSize] = useState('');
+  
+  // Descripción general de la mascota
   const [description, setDescription] = useState('');
+  
+  // Características distintivas (marcas, cicatrices, etc.)
   const [distinctiveFeatures, setDistinctiveFeatures] = useState('');
+  
+  // Recompensa ofrecida (opcional)
   const [reward, setReward] = useState('');
+  
+  // Fotos nuevas a subir (URIs locales)
   const [photos, setPhotos] = useState([]);
+  
+  // Fotos existentes del reporte (URLs de Supabase Storage)
   const [existingPhotos, setExistingPhotos] = useState([]);
+  
+  // Ubicación donde se perdió la mascota (objeto con lat, lng, address)
   const [location, setLocation] = useState(null);
+  
+  // Estado de carga (cuando se está guardando el reporte)
   const [loading, setLoading] = useState(false);
+  
+  // Estado de carga (cuando se está cargando un reporte para editar)
   const [loadingReport, setLoadingReport] = useState(false);
+  
+  // Controla si se muestra el mapa para seleccionar ubicación
   const [showMap, setShowMap] = useState(false);
+  
+  // Ubicación seleccionada en el mapa
   const [selectedLocation, setSelectedLocation] = useState(null);
 
+  // =========================
+  // Efectos (useEffect)
+  // =========================
+  /**
+   * Efecto que se ejecuta al montar el componente
+   * 
+   * Si estamos en modo edición, carga los datos del reporte existente.
+   * Si estamos creando un nuevo reporte, obtiene la ubicación actual del usuario.
+   */
   useEffect(() => {
     if (isEditMode && reportId) {
+      // Modo edición: cargar datos del reporte existente
       loadReportData();
     } else {
+      // Modo creación: obtener ubicación actual del usuario
       getCurrentLocationAndAddress();
     }
-  }, [isEditMode, reportId]);
+  }, [isEditMode, reportId]);  // Se ejecuta cuando cambian estos valores
 
+  /**
+   * Carga los datos de un reporte existente para editarlo
+   * 
+   * Esta función:
+   * 1. Obtiene el reporte desde Supabase
+   * 2. Verifica que el usuario tenga permisos para editarlo
+   * 3. Carga todos los campos del formulario con los datos existentes
+   * 4. Carga las fotos existentes del reporte
+   */
   const loadReportData = async () => {
     try {
+      // Marcar que está cargando (muestra spinner)
       setLoadingReport(true);
+      
+      // Obtener el reporte desde Supabase usando el ID
       const { data, error } = await reportService.getReportById(reportId);
       
+      // Si hay error o no se encontró el reporte
       if (error || !data) {
         Alert.alert('Error', 'No se pudo cargar el reporte. Por favor, intenta de nuevo.');
-        router.back();
+        router.back();  // Volver a la pantalla anterior
         return;
       }
 
-      // Verificar que el usuario es el dueño del reporte
+      // =========================
+      // Verificación de permisos
+      // =========================
+      // Verificar que el usuario actual es el dueño del reporte
+      // Solo el creador del reporte puede editarlo
       if (data.reporter_id !== user.id) {
         Alert.alert('Error', 'No tienes permiso para editar este reporte.');
-        router.back();
+        router.back();  // Volver a la pantalla anterior
         return;
       }
 
-      // Cargar datos del reporte
+      // =========================
+      // Cargar datos en el formulario
+      // =========================
+      // Cargar todos los campos del formulario con los datos del reporte
       setPetName(data.pet_name || '');
       setSpecies(data.species || '');
       setBreed(data.breed || '');

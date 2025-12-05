@@ -1,18 +1,54 @@
-import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View, TouchableOpacity } from 'react-native';
-import { ActivityIndicator, Button, Card, Text, TextInput, Title } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuthStore } from '../../src/stores/authStore';
+/**
+ * Pantalla de Perfil de Usuario
+ * ==============================
+ * 
+ * Esta pantalla muestra y permite editar el perfil del usuario autenticado.
+ * 
+ * Funcionalidades:
+ * - Ver información del perfil (nombre, email, teléfono)
+ * - Editar información del perfil
+ * - Cerrar sesión
+ * - Navegar a configuraciones adicionales
+ * 
+ * El perfil se obtiene del store de autenticación y se puede actualizar
+ * mediante el servicio de perfiles de Supabase.
+ */
 
+import React, { useEffect, useState } from 'react';  // Hooks de React
+import { Alert, ScrollView, StyleSheet, View, TouchableOpacity } from 'react-native';  // Componentes básicos
+import { ActivityIndicator, Button, Card, Text, TextInput, Title } from 'react-native-paper';  // Componentes de Material Design
+import { SafeAreaView } from 'react-native-safe-area-context';  // View que respeta áreas seguras
+import { useRouter } from 'expo-router';  // Hook de navegación
+import { Ionicons } from '@expo/vector-icons';  // Iconos
+import { useAuthStore } from '../../src/stores/authStore';  // Store de autenticación
+
+/**
+ * Componente principal de la pantalla de perfil
+ */
 export default function ProfileScreen() {
-  const { user, logout, refreshUser } = useAuthStore();
+  // =========================
+  // Hooks y Stores
+  // =========================
+  // Obtener estado y funciones del store de autenticación
+  const { 
+    user,  // Usuario actual
+    logout,  // Función para cerrar sesión
+    refreshUser  // Función para refrescar datos del usuario
+  } = useAuthStore();
+  
+  // Router para navegación
   const router = useRouter();
+  
+  // =========================
+  // Estado Local
+  // =========================
+  // Estado de carga (cuando se está actualizando el perfil o cerrando sesión)
   const [loading, setLoading] = useState(false);
+  
+  // Datos del perfil editables
   const [profileData, setProfileData] = useState({
-    full_name: '',
-    phone: '',
+    full_name: '',  // Nombre completo
+    phone: '',  // Teléfono
   });
 
   useEffect(() => {

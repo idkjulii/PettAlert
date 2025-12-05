@@ -1,14 +1,32 @@
 /**
- * Configuración del backend
+ * Configuración del Backend
+ * =========================
+ * 
+ * Este módulo centraliza toda la configuración relacionada con el backend:
+ * - URL base del backend (con prioridad de variables de entorno)
+ * - Endpoints disponibles de la API
+ * - Funciones helper para construir URLs
+ * - Headers para túneles (Cloudflare, etc.)
+ * 
+ * La URL del backend se determina con esta prioridad:
+ * 1. EXPO_PUBLIC_BACKEND_URL (variable de entorno explícita)
+ * 2. EXPO_PUBLIC_TUNNEL_URL (URL de túnel si está configurada)
+ * 3. NETWORK_CONFIG.BACKEND_URL (configuración de red local)
+ * 4. http://127.0.0.1:8003 (localhost por defecto)
  */
-import { NETWORK_CONFIG } from './network';
 
+import { NETWORK_CONFIG } from './network';  // Configuración de red local
+
+// =========================
+// URL Base del Backend
+// =========================
 // URL base del backend - prioridad: variable de entorno > red local > localhost
+// Esta URL se usa como prefijo para todos los endpoints de la API
 const BACKEND_URL =
-  process.env.EXPO_PUBLIC_BACKEND_URL ||
-  process.env.EXPO_PUBLIC_TUNNEL_URL ||
-  NETWORK_CONFIG?.BACKEND_URL ||
-  'http://127.0.0.1:8003';
+  process.env.EXPO_PUBLIC_BACKEND_URL ||  // Variable de entorno explícita (máxima prioridad)
+  process.env.EXPO_PUBLIC_TUNNEL_URL ||  // URL de túnel (Cloudflare, etc.)
+  NETWORK_CONFIG?.BACKEND_URL ||  // Configuración de red local detectada automáticamente
+  'http://127.0.0.1:8003';  // Localhost por defecto (puerto 8003 es el default de FastAPI)
 
 // Log de depuración para ver qué URL se está usando
 console.log('🔧 [BACKEND CONFIG]');

@@ -1,3 +1,18 @@
+"""
+Router de Mascotas
+==================
+
+Este router maneja todas las operaciones relacionadas con las mascotas de los usuarios.
+Permite gestionar el perfil de las mascotas, incluyendo información de salud,
+vacunaciones, medicamentos, recordatorios y eventos de salud.
+
+Funcionalidades principales:
+- CRUD de mascotas (crear, leer, actualizar, eliminar)
+- Gestión de salud (vacunaciones, medicamentos, recordatorios)
+- Eventos de salud (wellness, health events)
+- Resumen de salud de la mascota
+"""
+
 from fastapi import APIRouter, HTTPException, Query, Body
 from typing import List, Dict, Any, Optional
 from datetime import date, datetime
@@ -8,10 +23,19 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.supabase_client import get_supabase_client
 
+# Crear el router con prefijo /pets
 router = APIRouter(prefix="/pets", tags=["pets"])
 
 def _sb():
-    """Crea un cliente de Supabase con configuración optimizada"""
+    """
+    Crea un cliente de Supabase con configuración optimizada.
+    
+    Returns:
+        Client: Cliente de Supabase configurado
+        
+    Raises:
+        HTTPException: Si no se puede conectar a Supabase
+    """
     try:
         return get_supabase_client()
     except Exception as e:
@@ -23,9 +47,22 @@ def _sb():
 
 @router.get("/")
 async def get_user_pets(owner_id: str = Query(..., description="ID del dueño")):
-    """Obtiene todas las mascotas de un usuario"""
+    """
+    Obtiene todas las mascotas de un usuario.
+    
+    Args:
+        owner_id: ID del usuario dueño de las mascotas
+        
+    Returns:
+        JSON con:
+        - pets: Lista de mascotas del usuario
+        - count: Número total de mascotas
+        
+    Las mascotas se ordenan por fecha de creación (más recientes primero).
+    """
     try:
         sb = _sb()
+        # Consultar todas las mascotas del usuario
         result = sb.table("pets")\
             .select("*")\
             .eq("owner_id", owner_id)\

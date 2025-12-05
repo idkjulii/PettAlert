@@ -1,24 +1,62 @@
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
-import {
-    ActivityIndicator,
-    Avatar,
-    Badge,
-    Button,
-    Card,
-    List,
-    Text,
-    Title,
-} from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useConversations } from '../../src/hooks/useConversations';
-import { useAuthStore } from '../../src/stores/authStore';
+/**
+ * Pantalla de Mensajes (Lista de Conversaciones)
+ * ================================================
+ * 
+ * Esta pantalla muestra todas las conversaciones del usuario.
+ * 
+ * Funcionalidades:
+ * - Listar todas las conversaciones del usuario
+ * - Mostrar último mensaje de cada conversación
+ * - Mostrar badge con mensajes no leídos
+ * - Pull-to-refresh para actualizar conversaciones
+ * - Navegar a conversación individual al hacer clic
+ * - Actualizar automáticamente cuando la pantalla recibe foco
+ * 
+ * Las conversaciones se cargan usando el hook useConversations
+ * que se conecta a Supabase Realtime para actualizaciones en vivo.
+ */
 
+import { useFocusEffect, useRouter } from 'expo-router';  // Hooks de navegación
+import React, { useCallback } from 'react';  // Hooks de React
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';  // Componentes básicos
+import {
+    ActivityIndicator,  // Spinner de carga
+    Avatar,  // Avatar de usuario
+    Badge,  // Badge para mostrar contadores
+    Button,  // Botón de Material Design
+    Card,  // Tarjeta de Material Design
+    List,  // Lista de Material Design
+    Text,  // Texto simple
+    Title,  // Título
+} from 'react-native-paper';  // Componentes de Material Design
+import { SafeAreaView } from 'react-native-safe-area-context';  // View que respeta áreas seguras
+import { useConversations } from '../../src/hooks/useConversations';  // Hook para gestionar conversaciones
+import { useAuthStore } from '../../src/stores/authStore';  // Store de autenticación
+
+/**
+ * Componente principal de la pantalla de mensajes
+ */
 export default function MessagesScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Router para navegación
   const router = useRouter();
+  
+  // Verificar si el usuario está autenticado
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated());
-  const { conversations, loading, error, refreshing, refresh, refetch } = useConversations();
+  
+  // Hook para gestionar conversaciones (carga, actualización, etc.)
+  const { 
+    conversations,  // Lista de conversaciones
+    loading,  // Estado de carga
+    error,  // Error si hay
+    refreshing,  // Estado de refresh
+    refresh,  // Función para refrescar manualmente
+    refetch  // Función para recargar datos
+  } = useConversations();
+  
+  // Obtener ID del usuario actual
   const getUserId = useAuthStore((state) => state.getUserId);
   const userId = getUserId();
 

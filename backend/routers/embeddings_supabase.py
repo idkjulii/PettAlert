@@ -1,13 +1,40 @@
+"""
+Router de Embeddings para Supabase
+===================================
+
+Este router maneja la generación y gestión de embeddings de imágenes
+usando MegaDescriptor y almacenándolos en Supabase.
+
+Funcionalidades:
+- Generar embeddings de imágenes
+- Indexar embeddings en reportes (guardar en base de datos)
+- Buscar imágenes similares usando embeddings
+- Filtrar por ubicación y otros criterios
+
+Los embeddings se generan usando MegaDescriptor y se almacenan
+en Supabase usando pgvector para búsquedas vectoriales eficientes.
+"""
+
 # backend/routers/embeddings_supabase.py
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 import os
 from typing import Optional
-from services.embeddings import image_bytes_to_vec
+from services.embeddings import image_bytes_to_vec  # Función para generar embeddings
 from supabase import create_client, Client
 
+# Crear el router con prefijo /embeddings
 router = APIRouter(prefix="/embeddings", tags=["embeddings"])
 
 def get_supabase():
+    """
+    Crea un cliente de Supabase básico.
+    
+    Returns:
+        Client: Cliente de Supabase
+        
+    Raises:
+        RuntimeError: Si no se encuentran las credenciales en variables de entorno
+    """
     url = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_SERVICE_KEY")
     if not url or not key:

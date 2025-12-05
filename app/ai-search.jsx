@@ -1,36 +1,106 @@
-import { aiSearchService, getCurrentLocation, searchImage } from '@services';
+/**
+ * Pantalla de Búsqueda con IA
+ * ============================
+ * 
+ * Esta pantalla permite buscar mascotas usando inteligencia artificial.
+ * El usuario sube una foto de una mascota y el sistema busca coincidencias
+ * visuales usando embeddings de MegaDescriptor.
+ * 
+ * Funcionalidades:
+ * - Seleccionar imagen de la galería o tomar foto
+ * - Configurar tipo de búsqueda (perdidas, encontradas, ambas)
+ * - Configurar radio de búsqueda (5km, 10km, 25km, 50km)
+ * - Ver resultados de búsqueda con scores de similitud
+ * - Navegar a detalles de reportes encontrados
+ * 
+ * Flujo:
+ * 1. Usuario selecciona/toma una foto
+ * 2. Configura tipo de búsqueda y radio
+ * 3. Presiona "Buscar"
+ * 4. El backend genera embedding y busca matches
+ * 5. Se muestran los resultados ordenados por similitud
+ */
+
+// =========================
+// Imports de Expo
+// =========================
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
+
+// =========================
+// Imports de React
+// =========================
 import React, { useState } from 'react';
+
+// =========================
+// Imports de React Native
+// =========================
 import {
-    Alert,
-    Image,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+    Alert,              // Para mostrar alertas
+    Image,              // Componente de imagen
+    ScrollView,         // Para hacer scrollable el contenido
+    StyleSheet,         // Para estilos
+    TouchableOpacity,   // Botón táctil
+    View,               // Componente de vista básico
 } from 'react-native';
+
+// =========================
+// Imports de React Native Paper
+// =========================
 import {
-    Button,
-    Card,
-    Chip,
-    IconButton,
-    Paragraph,
-    Text,
-    Title
+    Button,             // Botón de Material Design
+    Card,               // Tarjeta de Material Design
+    Chip,               // Chip para selección
+    IconButton,         // Botón con ícono
+    Paragraph,          // Párrafo de texto
+    Text,               // Texto simple
+    Title,              // Título
 } from 'react-native-paper';
+
+// =========================
+// Imports de Safe Area
+// =========================
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// =========================
+// Imports de Servicios
+// =========================
+import { aiSearchService, getCurrentLocation, searchImage } from '@services';
 import { postImage } from '../src/lib/api';
 
+/**
+ * Componente principal de la pantalla de búsqueda con IA
+ */
 export default function AISearchScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Router para navegación
   const router = useRouter();
+  
+  // =========================
+  // Estado Local
+  // =========================
+  // URI de la imagen seleccionada (local file://)
   const [selectedImage, setSelectedImage] = useState(null);
+  
+  // Resultado del análisis de la imagen (si se hizo análisis previo)
   const [analysisResult, setAnalysisResult] = useState(null);
+  
+  // Estado de carga (cuando se está buscando)
   const [loading, setLoading] = useState(false);
+  
+  // Resultados de la búsqueda (matches encontrados)
   const [searchResults, setSearchResults] = useState([]);
+  
+  // Resultados de búsqueda por embedding (si se usa búsqueda vectorial)
   const [embeddingResults, setEmbeddingResults] = useState([]);
-  const [searchType, setSearchType] = useState('both'); // 'lost', 'found', 'both'
-  const [radius, setRadius] = useState(10); // km
+  
+  // Tipo de búsqueda: 'lost' (perdidas), 'found' (encontradas), 'both' (ambas)
+  const [searchType, setSearchType] = useState('both');
+  
+  // Radio de búsqueda en kilómetros
+  const [radius, setRadius] = useState(10);  // km
 
   const SEARCH_TYPES = [
     { id: 'lost', label: 'Buscar mascotas perdidas', icon: 'alert', color: '#FF3B30' },

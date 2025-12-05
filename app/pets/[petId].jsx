@@ -1,38 +1,115 @@
+/**
+ * Pantalla de Detalles de Mascota
+ * ================================
+ * 
+ * Esta pantalla muestra todos los detalles de una mascota específica,
+ * incluyendo información básica, historial de salud, vacunaciones,
+ * medicamentos, recordatorios e indicadores de bienestar.
+ * 
+ * Funcionalidades:
+ * - Ver información completa de la mascota
+ * - Ver resumen de salud
+ * - Ver historial de salud
+ * - Ver vacunaciones
+ * - Ver medicamentos activos
+ * - Ver recordatorios
+ * - Ver indicadores de bienestar
+ * - Pull-to-refresh para actualizar datos
+ * - Navegar a agregar nuevos registros (vacunación, medicamento, etc.)
+ * 
+ * La pantalla usa tabs para organizar la información en secciones.
+ */
+
+// =========================
+// Imports de Expo Router
+// =========================
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+
+// =========================
+// Imports de React
+// =========================
 import React, { useEffect, useState } from 'react';
+
+// =========================
+// Imports de React Native
+// =========================
 import {
-  ScrollView,
-  StyleSheet,
-  View,
-  Image,
-  RefreshControl,
-  TouchableOpacity,
+  Image, // Componente de imagen
+  RefreshControl, // Control de pull-to-refresh
+  ScrollView, // Para hacer scrollable el contenido
+  StyleSheet, // Para estilos
+  TouchableOpacity, // Botón táctil
+  View, // Componente de vista básico
 } from 'react-native';
+
+// =========================
+// Imports de React Native Paper
+// =========================
 import {
-  ActivityIndicator,
-  Card,
-  Text,
-  Title,
-  Button,
-  Chip,
-  Divider,
-  FAB,
+  ActivityIndicator, // Spinner de carga
+  Button, // Botón de Material Design
+  Card, // Tarjeta de Material Design
+  Chip, // Chip para mostrar etiquetas
+  Divider, // Divisor visual
+  FAB, // Floating Action Button
+  Text, // Texto simple
+  Title, // Título
 } from 'react-native-paper';
+
+// =========================
+// Imports de Safe Area
+// =========================
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+
+// =========================
+// Imports de Servicios
+// =========================
 import { petService } from '../../src/services/supabase';
 
+/**
+ * Componente principal de la pantalla de detalles de mascota
+ */
 export default function PetDetailScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Router para navegación
   const router = useRouter();
+  
+  // ID de la mascota desde los parámetros de la ruta
   const { petId } = useLocalSearchParams();
+  
+  // =========================
+  // Estado Local
+  // =========================
+  // Tab activo: 'info', 'health', 'reminders', 'wellness'
   const [activeTab, setActiveTab] = useState('info');
+  
+  // Datos de la mascota
   const [pet, setPet] = useState(null);
+  
+  // Resumen de salud de la mascota
   const [healthSummary, setHealthSummary] = useState(null);
+  
+  // Historial de eventos de salud
   const [healthHistory, setHealthHistory] = useState([]);
+  
+  // Lista de vacunaciones
   const [vaccinations, setVaccinations] = useState([]);
+  
+  // Lista de medicamentos
   const [medications, setMedications] = useState([]);
+  
+  // Lista de recordatorios
   const [reminders, setReminders] = useState([]);
+  
+  // Indicadores de bienestar (peso, temperatura, etc.)
   const [wellnessIndicators, setWellnessIndicators] = useState([]);
+  
+  // Estado de carga inicial
   const [loading, setLoading] = useState(true);
+  
+  // Estado de refresh (pull-to-refresh)
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {

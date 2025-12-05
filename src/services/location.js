@@ -1,9 +1,37 @@
-import * as Location from 'expo-location';
+/**
+ * Servicio de Ubicación
+ * =====================
+ * 
+ * Este servicio maneja todas las operaciones relacionadas con la ubicación:
+ * - Solicitar y verificar permisos de ubicación
+ * - Obtener la ubicación actual del dispositivo
+ * - Geocodificación inversa (convertir coordenadas a dirección)
+ * - Formateo de direcciones
+ * 
+ * Usa expo-location para acceder a los servicios de ubicación del dispositivo.
+ */
 
+import * as Location from 'expo-location';  // API de ubicación de Expo
+
+/**
+ * Solicita permisos de ubicación al usuario
+ * 
+ * @returns {Promise<{granted: boolean, error: Error|null}>}
+ * 
+ * Esta función solicita permisos de ubicación en primer plano.
+ * En iOS y Android, el usuario debe aprobar explícitamente el permiso.
+ * 
+ * Nota: Los permisos se solicitan automáticamente la primera vez,
+ * pero el usuario puede denegarlos. En ese caso, se debe mostrar
+ * un mensaje explicando por qué se necesita el permiso.
+ */
 const requestLocationPermission = async () => {
   try {
+    // Solicitar permisos de ubicación en primer plano
+    // requestForegroundPermissionsAsync muestra un diálogo al usuario
     const { status } = await Location.requestForegroundPermissionsAsync();
     
+    // Verificar si el permiso fue otorgado
     if (status !== 'granted') {
       return {
         granted: false,
@@ -11,6 +39,7 @@ const requestLocationPermission = async () => {
       };
     }
     
+    // Permiso otorgado
     return { granted: true, error: null };
   } catch (error) {
     console.error('Error solicitando permisos de ubicación:', error);

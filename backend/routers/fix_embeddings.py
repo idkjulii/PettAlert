@@ -1,22 +1,47 @@
 """
-Router para regenerar embeddings de reportes que no los tienen.
+Router para Regenerar Embeddings
+=================================
+
+Este router proporciona herramientas administrativas para regenerar embeddings
+de reportes que no los tienen o que tienen embeddings incorrectos.
+
+Funcionalidades:
+- Regenerar embedding para un reporte específico
+- Regenerar embeddings para múltiples reportes
+- Regenerar embeddings para todos los reportes sin embedding
+- Verificar estado de embeddings
+
+Útil para:
+- Migración de reportes antiguos que no tienen embeddings
+- Corrección de embeddings corruptos
+- Regeneración masiva después de actualizar el modelo
 """
+
 from fastapi import APIRouter, HTTPException
 from typing import List, Dict
 import os, sys
 from pathlib import Path
 from supabase import Client
-import httpx
-from services.embeddings import image_bytes_to_vec
+import httpx  # Para descargar imágenes desde URLs
+from services.embeddings import image_bytes_to_vec  # Función para generar embeddings
 
 # Agregar la carpeta parent al path para poder importar utils
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.supabase_client import get_supabase_client
 
+# Crear el router con prefijo /fix-embeddings
 router = APIRouter(prefix="/fix-embeddings", tags=["fix-embeddings"])
 
 def _sb() -> Client:
-    """Crea un cliente de Supabase con configuración optimizada de timeouts"""
+    """
+    Crea un cliente de Supabase con configuración optimizada de timeouts.
+    
+    Returns:
+        Client: Cliente de Supabase configurado
+        
+    Raises:
+        HTTPException: Si no se puede conectar a Supabase
+    """
     try:
         return get_supabase_client()
     except Exception as e:

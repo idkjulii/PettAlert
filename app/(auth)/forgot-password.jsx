@@ -1,29 +1,70 @@
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+/**
+ * Pantalla de Recuperación de Contraseña
+ * =======================================
+ * 
+ * Esta pantalla permite a los usuarios solicitar un enlace de recuperación
+ * de contraseña por email.
+ * 
+ * Funcionalidades:
+ * - Ingresar email para recuperar contraseña
+ * - Validación de formato de email
+ * - Envío de email de recuperación
+ * - Manejo de errores (rate limiting, email no encontrado, etc.)
+ * - Navegación de vuelta a login
+ * 
+ * Flujo:
+ * 1. Usuario ingresa su email
+ * 2. Se valida el formato del email
+ * 3. Se envía un email de recuperación con Supabase
+ * 4. El usuario recibe un email con un enlace para resetear su contraseña
+ * 5. Al hacer clic en el enlace, se abre la app y puede cambiar su contraseña
+ */
+
+import { useRouter } from 'expo-router';  // Hook de navegación
+import React, { useState } from 'react';  // Hooks de React
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    View,
+    Alert,  // Para mostrar alertas
+    KeyboardAvoidingView,  // Para ajustar cuando aparece el teclado
+    Platform,  // Para detectar la plataforma
+    ScrollView,  // Para hacer scrollable el contenido
+    StyleSheet,  // Para estilos
+    View,  // Componente de vista básico
 } from 'react-native';
 import {
-    Button,
-    Card,
-    Divider,
-    Paragraph,
-    Text,
-    TextInput,
-    Title,
-} from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuthStore } from '../../src/stores/authStore';
+    Button,  // Botón de Material Design
+    Card,  // Tarjeta de Material Design
+    Divider,  // Divisor visual
+    Paragraph,  // Párrafo de texto
+    Text,  // Texto simple
+    TextInput,  // Campo de entrada de texto
+    Title,  // Título
+} from 'react-native-paper';  // Componentes de Material Design
+import { SafeAreaView } from 'react-native-safe-area-context';  // View que respeta áreas seguras
+import { useAuthStore } from '../../src/stores/authStore';  // Store de autenticación
 
+/**
+ * Componente principal de la pantalla de recuperación de contraseña
+ */
 export default function ForgotPasswordScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Router para navegación
   const router = useRouter();
-  const { resetPassword, loading } = useAuthStore();
+  
+  // Obtener funciones del store de autenticación
+  const { 
+    resetPassword,  // Función para enviar email de recuperación
+    loading  // Estado de carga
+  } = useAuthStore();
+  
+  // =========================
+  // Estado Local
+  // =========================
+  // Email del usuario
   const [email, setEmail] = useState('');
+  
+  // Flag que indica si el email fue enviado exitosamente
   const [emailSent, setEmailSent] = useState(false);
 
   const handleResetPassword = async () => {

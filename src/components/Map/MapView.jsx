@@ -1,24 +1,67 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
-import MapView, { Circle, Marker } from 'react-native-maps';
-import { getCurrentLocation } from '../../services/location';
+/**
+ * Componente de Mapa Interactivo
+ * ===============================
+ * 
+ * Este componente muestra un mapa interactivo con marcadores de reportes
+ * y permite interactuar con ellos.
+ * 
+ * Funcionalidades:
+ * - Mostrar marcadores de reportes en el mapa
+ * - Mostrar ubicación del usuario
+ * - Ajustar zoom automáticamente para mostrar todos los marcadores
+ * - Permitir seleccionar ubicación (para crear reportes)
+ * - Mostrar círculo de radio de búsqueda
+ * - Manejar clics en marcadores
+ * 
+ * Usa react-native-maps que es un wrapper de MapKit (iOS) y Google Maps (Android).
+ */
 
+import React, { useEffect, useRef, useState } from 'react';  // Hooks de React
+import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';  // Componentes básicos
+import MapView, { Circle, Marker } from 'react-native-maps';  // Componente de mapa y sus componentes
+import { getCurrentLocation } from '../../services/location';  // Servicio de ubicación
+
+/**
+ * Componente de mapa personalizado
+ * 
+ * @param {Array} reports - Lista de reportes a mostrar como marcadores
+ * @param {Function} onReportPress - Callback cuando se presiona un reporte
+ * @param {Function} onLocationSelect - Callback cuando se selecciona una ubicación
+ * @param {boolean} showUserLocation - Si mostrar la ubicación del usuario
+ * @param {boolean} showRadius - Si mostrar un círculo de radio
+ * @param {number} radiusMeters - Radio del círculo en metros
+ * @param {Object} initialRegion - Región inicial del mapa (lat, lng, delta)
+ * @param {Object} style - Estilos personalizados para el mapa
+ * @param {boolean} allowLocationSelection - Si permitir seleccionar ubicación tocando el mapa
+ * @param {Object} selectedLocation - Ubicación seleccionada (si hay)
+ * @param {Function} onMarkerPress - Callback cuando se presiona un marcador
+ */
 const CustomMapView = ({ 
-  reports = [],
-  onReportPress,
-  onLocationSelect,
-  showUserLocation = true,
-  showRadius = false,
-  radiusMeters = 5000,
-  initialRegion = null,
-  style,
-  allowLocationSelection = false,
-  selectedLocation = null,
-  onMarkerPress,
+  reports = [],  // Lista de reportes a mostrar
+  onReportPress,  // Callback para cuando se presiona un reporte
+  onLocationSelect,  // Callback para cuando se selecciona una ubicación
+  showUserLocation = true,  // Mostrar ubicación del usuario (default: true)
+  showRadius = false,  // Mostrar círculo de radio (default: false)
+  radiusMeters = 5000,  // Radio en metros (default: 5km)
+  initialRegion = null,  // Región inicial del mapa
+  style,  // Estilos personalizados
+  allowLocationSelection = false,  // Permitir seleccionar ubicación (default: false)
+  selectedLocation = null,  // Ubicación seleccionada
+  onMarkerPress,  // Callback para cuando se presiona un marcador
 }) => {
+  // =========================
+  // Referencias y Estado
+  // =========================
+  // Referencia al componente MapView para controlarlo programáticamente
   const mapRef = useRef(null);
+  
+  // Ubicación actual del usuario (lat, lng)
   const [userLocation, setUserLocation] = useState(null);
+  
+  // Estado de carga (cuando se está obteniendo la ubicación)
   const [loading, setLoading] = useState(true);
+  
+  // Región actual del mapa (lat, lng, latDelta, lngDelta)
   const [region, setRegion] = useState(initialRegion);
 
   useEffect(() => {

@@ -1,47 +1,115 @@
-import React, { useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  View,
-  Alert,
-  Image,
-  TouchableOpacity,
-} from 'react-native';
-import {
-  TextInput,
-  Button,
-  Text,
-  Title,
-  Card,
-  ActivityIndicator,
-  RadioButton,
-  HelperText,
-} from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+/**
+ * Pantalla de Crear Mascota
+ * ==========================
+ * 
+ * Esta pantalla permite a los usuarios crear un nuevo perfil de mascota.
+ * 
+ * Funcionalidades:
+ * - Formulario completo con todos los campos de la mascota
+ * - Selección de especie y tamaño
+ * - Subir múltiples fotos de la mascota
+ * - Validación de campos requeridos
+ * - Guardar mascota en Supabase
+ * 
+ * Flujo:
+ * 1. Usuario completa el formulario
+ * 2. Selecciona fotos de la mascota
+ * 3. Al guardar, se crea el perfil de la mascota en Supabase
+ * 4. Las fotos se suben a Supabase Storage
+ * 5. Se navega de vuelta a la lista de mascotas
+ */
+
+// =========================
+// Imports de Expo
+// =========================
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+
+// =========================
+// Imports de React
+// =========================
+import React, { useState } from 'react';
+
+// =========================
+// Imports de React Native
+// =========================
+import {
+  Alert,              // Para mostrar alertas
+  Image,              // Componente de imagen
+  ScrollView,         // Para hacer scrollable el contenido
+  StyleSheet,         // Para estilos
+  TouchableOpacity,   // Botón táctil
+  View,               // Componente de vista básico
+} from 'react-native';
+
+// =========================
+// Imports de React Native Paper
+// =========================
+import {
+  ActivityIndicator,  // Spinner de carga
+  Button,             // Botón de Material Design
+  Card,               // Tarjeta de Material Design
+  HelperText,         // Texto de ayuda
+  RadioButton,        // Radio button para selección
+  Text,               // Texto simple
+  TextInput,          // Campo de entrada de texto
+  Title,              // Título
+} from 'react-native-paper';
+
+// =========================
+// Imports de Safe Area
+// =========================
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+// =========================
+// Imports de Servicios
+// =========================
 import { petService } from '../../src/services/supabase';
-import { useAuthStore } from '../../src/stores/authStore';
 import { storageService } from '../../src/services/storage';
 
+// =========================
+// Imports de Stores
+// =========================
+import { useAuthStore } from '../../src/stores/authStore';
+
+/**
+ * Componente principal de la pantalla de crear mascota
+ */
 export default function CreatePetScreen() {
+  // =========================
+  // Hooks y Navegación
+  // =========================
+  // Router para navegación
   const router = useRouter();
+  
+  // Obtener función para obtener ID del usuario
   const { getUserId } = useAuthStore();
+  
+  // =========================
+  // Estado Local
+  // =========================
+  // Estado de carga (cuando se está guardando la mascota)
   const [loading, setLoading] = useState(false);
+  
+  // Estado de carga (cuando se están subiendo las fotos)
   const [uploading, setUploading] = useState(false);
 
-  // Estado del formulario
+  // =========================
+  // Estado del Formulario
+  // =========================
+  // Datos del formulario de la mascota
   const [formData, setFormData] = useState({
-    name: '',
-    species: 'dog',
-    breed: '',
-    color: '',
-    size: '',
-    description: '',
-    distinctive_features: '',
-    photos: [],
+    name: '',  // Nombre de la mascota
+    species: 'dog',  // Especie (dog, cat, bird, rabbit, other)
+    breed: '',  // Raza
+    color: '',  // Color
+    size: '',  // Tamaño (small, medium, large)
+    description: '',  // Descripción general
+    distinctive_features: '',  // Características distintivas
+    photos: [],  // Fotos de la mascota (URIs locales)
   });
 
+  // Errores de validación del formulario
   const [errors, setErrors] = useState({});
 
   // Validar formulario

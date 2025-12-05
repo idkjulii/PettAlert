@@ -1,28 +1,62 @@
-import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
-import { Callout, Marker } from 'react-native-maps';
-import { Text } from 'react-native-paper';
+/**
+ * Componente de Marcador de Reporte en el Mapa
+ * =============================================
+ * 
+ * Este componente representa un marcador en el mapa para un reporte específico.
+ * 
+ * Funcionalidades:
+ * - Mostrar marcador con foto de la mascota o emoji de especie
+ * - Mostrar callout (burbuja de información) al hacer clic
+ * - Color diferente según tipo (rojo para perdidos, verde para encontrados)
+ * - Mostrar información básica en el callout
+ * - Manejar clics para abrir detalles del reporte
+ * 
+ * El marcador se renderiza en el mapa usando react-native-maps.
+ */
 
+import React from 'react';  // React
+import { Image, StyleSheet, View } from 'react-native';  // Componentes básicos
+import { Callout, Marker } from 'react-native-maps';  // Componentes de mapa
+import { Text } from 'react-native-paper';  // Componente de texto
+
+/**
+ * Componente de marcador de reporte
+ * 
+ * @param {object} report - Datos del reporte
+ * @param {object} coordinate - Coordenadas del marcador {latitude, longitude}
+ * @param {Function} onPress - Callback cuando se presiona el marcador
+ */
 const ReportMarker = ({ report, coordinate, onPress }) => {
+  // Determinar si es un reporte de mascota perdida o encontrada
   const isLost = report.type === 'lost';
+  
+  // Color del marcador según el tipo
+  // Rojo (#FF3B30) para perdidos, Verde (#34C759) para encontrados
   const markerColor = isLost ? '#FF3B30' : '#34C759';
+  
+  // Primera foto del reporte (si hay)
   const primaryPhoto = report.photos?.[0];
 
   // Validar que tengamos datos mínimos para renderizar
+  // Si faltan datos críticos, no renderizar el marcador
   if (!report || !coordinate || !coordinate.latitude || !coordinate.longitude) {
     console.warn('⚠️ ReportMarker: datos inválidos', { report, coordinate });
     return null;
   }
 
-  // Función para obtener el emoji de la especie
+  /**
+   * Obtiene el emoji correspondiente a la especie de la mascota
+   * 
+   * @returns {string} Emoji de la especie
+   */
   const getSpeciesEmoji = () => {
-    if (!report.species) return '🐾';
+    if (!report.species) return '🐾';  // Emoji genérico si no hay especie
     switch (report.species) {
       case 'dog': return '🐕';
       case 'cat': return '🐈';
       case 'bird': return '🐦';
       case 'rabbit': return '🐰';
-      default: return '🐾';
+      default: return '🐾';  // Emoji genérico para otras especies
     }
   };
 
