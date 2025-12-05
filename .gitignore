@@ -19,4 +19,7 @@ backend/.env
 docs/
 specs/
 *.md
-!README.md
+
+# Configuración local y herramientas de desarrollo
+.specify/
+.cursor/
