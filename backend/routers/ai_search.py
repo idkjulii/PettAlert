@@ -21,7 +21,7 @@ Flujo de búsqueda:
 5. Se ordenan y filtran los resultados
 6. Se retornan los mejores matches
 
-El sistema usa embeddings de 2048 dimensiones generados por MegaDescriptor-L-384.
+El sistema usa embeddings de 1536 dimensiones generados por MegaDescriptor-L-384.
 """
 
 # =========================
@@ -331,7 +331,7 @@ async def ai_search(
         # Generar embedding con MegaDescriptor
         # =========================
         # Importar la función para generar embeddings
-        # MegaDescriptor convierte la imagen en un vector numérico de 2048 dimensiones
+        # MegaDescriptor convierte la imagen en un vector numérico de 1536 dimensiones
         from services.embeddings import image_bytes_to_vec
         
         # Generar el embedding de la imagen de búsqueda

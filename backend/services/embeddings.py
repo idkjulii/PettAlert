@@ -6,7 +6,7 @@ Este módulo se encarga de generar embeddings (vectores numéricos) de imágenes
 usando el modelo MegaDescriptor, especializado en reconocimiento de animales.
 
 MegaDescriptor es un modelo de deep learning que convierte imágenes en vectores
-de alta dimensión (2048 dimensiones) que capturan características visuales.
+de alta dimensión (1536 dimensiones) que capturan características visuales.
 Estos vectores se usan para buscar coincidencias visuales entre reportes de
 mascotas perdidas y encontradas.
 
@@ -43,7 +43,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 MODEL_NAME = "hf-hub:BVRA/MegaDescriptor-L-384"
 
 # La dimensión del embedding se detectará automáticamente al cargar el modelo
-# MegaDescriptor-L genera embeddings de 2048 dimensiones
+# MegaDescriptor-L-384 genera embeddings de 1536 dimensiones
 EMBEDDING_DIM = None
 
 # Variables globales para cachear el modelo cargado
@@ -98,7 +98,8 @@ def _load_model():
             print(f"📊 Dimensión del modelo: {_actual_dim}")
         
         # Configurar transformaciones de preprocesamiento para las imágenes
-        # Estas transformaciones deben coincidir con las que usó el modelo durante el entrenamiento
+        # Estas transformaciones deben coincidir EXACTAMENTE con las que usó el modelo durante el entrenamiento
+        # MegaDescriptor-L-384 usa normalización [0.5, 0.5, 0.5] que convierte [0, 1] a [-1, 1]
         _transforms = T.Compose([
             T.Resize(size=(384, 384)),  # Redimensionar a 384x384 (tamaño que espera MegaDescriptor)
             T.ToTensor(),  # Convertir PIL Image a tensor de PyTorch (0-255 -> 0-1)
@@ -184,7 +185,7 @@ def _generate_embedding(image_bytes: bytes) -> np.ndarray:
         feats = feats / feats.norm(dim=-1, keepdim=True)
         
         # Convertir de tensor de PyTorch a numpy array
-        # squeeze(0) elimina la dimensión de batch: [1, 2048] -> [2048]
+        # squeeze(0) elimina la dimensión de batch: [1, 1536] -> [1536]
         # detach() desvincula del grafo computacional
         # cpu() mueve a CPU (necesario antes de convertir a numpy)
         # numpy() convierte a numpy array
@@ -220,13 +221,13 @@ def image_bytes_to_vec(image_bytes: bytes) -> np.ndarray:
         
     Returns:
         numpy array float32 normalizado con el embedding
-        La dimensión depende del modelo (MegaDescriptor-L genera 2048 dimensiones)
+        La dimensión depende del modelo (MegaDescriptor-L-384 genera 1536 dimensiones)
         
     Ejemplo:
         >>> with open("foto_perro.jpg", "rb") as f:
         ...     image_bytes = f.read()
         >>> embedding = image_bytes_to_vec(image_bytes)
-        >>> print(embedding.shape)  # (2048,)
+        >>> print(embedding.shape)  # (1536,)
         >>> print(embedding.dtype)  # float32
     """
     # Versión síncrona simple para mantener compatibilidad con código existente

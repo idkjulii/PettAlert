@@ -154,7 +154,7 @@ async def generate_and_save_embedding(report_id: str, photo_url: str):
     Esta función se ejecuta en segundo plano (background task) para no bloquear
     la respuesta HTTP al crear un reporte. El proceso completo es:
     1. Descarga la imagen desde Supabase Storage
-    2. Genera un embedding usando MegaDescriptor (vector numérico de 2048 dimensiones)
+    2. Genera un embedding usando MegaDescriptor (vector numérico de 1536 dimensiones)
     3. Guarda el embedding en la columna 'embedding' de la tabla 'reports'
     4. Opcionalmente busca automáticamente matches (coincidencias) con otros reportes
     
